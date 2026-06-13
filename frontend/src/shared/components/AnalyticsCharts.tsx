@@ -16,9 +16,24 @@ import {
   YAxis,
 } from "recharts";
 import { Card } from "@/shared/components/ui/Card";
+import { useTheme } from "@/shared/hooks/useTheme";
 import type { StudentResult } from "@/shared/types/results";
 
 const COLORS = ["#7C3AED", "#A78BFA", "#22C55E", "#F59E0B", "#EF4444", "#6366F1"];
+
+function useChartTheme() {
+  const { isDark } = useTheme();
+  return {
+    grid: isDark ? "#ffffff10" : "#0f172a12",
+    axis: isDark ? "#94A3B8" : "#64748B",
+    tooltip: {
+      background: isDark ? "#111827" : "#FFFFFF",
+      border: isDark ? "1px solid #ffffff15" : "1px solid #0f172a12",
+      borderRadius: 12,
+      color: isDark ? "#FFFFFF" : "#0F172A",
+    },
+  };
+}
 
 function buildAnalytics(data: StudentResult) {
   const subjects = data.subjects || [];
@@ -70,6 +85,7 @@ function buildAnalytics(data: StudentResult) {
 
 export function AnalyticsCharts({ data }: { data: StudentResult }) {
   const { semesterData, cgpaGrowth, creditData, backlogData, passPct } = buildAnalytics(data);
+  const chart = useChartTheme();
 
   if (!data.subjects?.length) return null;
 
@@ -79,10 +95,10 @@ export function AnalyticsCharts({ data }: { data: StudentResult }) {
         <h3 className="mb-4 font-display text-lg font-semibold">Semester Wise SGPA</h3>
         <ResponsiveContainer width="100%" height={240}>
           <BarChart data={semesterData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
-            <XAxis dataKey="name" stroke="#94A3B8" fontSize={12} />
-            <YAxis stroke="#94A3B8" fontSize={12} domain={[0, 10]} />
-            <Tooltip contentStyle={{ background: "#111827", border: "1px solid #ffffff15", borderRadius: 12 }} />
+            <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} />
+            <XAxis dataKey="name" stroke={chart.axis} fontSize={12} />
+            <YAxis stroke={chart.axis} fontSize={12} domain={[0, 10]} />
+            <Tooltip contentStyle={chart.tooltip} />
             <Bar dataKey="sgpa" fill="#7C3AED" radius={[8, 8, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
@@ -92,10 +108,10 @@ export function AnalyticsCharts({ data }: { data: StudentResult }) {
         <h3 className="mb-4 font-display text-lg font-semibold">CGPA Growth</h3>
         <ResponsiveContainer width="100%" height={240}>
           <AreaChart data={cgpaGrowth}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
-            <XAxis dataKey="name" stroke="#94A3B8" fontSize={12} />
-            <YAxis stroke="#94A3B8" fontSize={12} />
-            <Tooltip contentStyle={{ background: "#111827", border: "1px solid #ffffff15", borderRadius: 12 }} />
+            <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} />
+            <XAxis dataKey="name" stroke={chart.axis} fontSize={12} />
+            <YAxis stroke={chart.axis} fontSize={12} />
+            <Tooltip contentStyle={chart.tooltip} />
             <Area type="monotone" dataKey="cgpa" stroke="#A78BFA" fill="#7C3AED33" strokeWidth={2} />
           </AreaChart>
         </ResponsiveContainer>
@@ -105,10 +121,10 @@ export function AnalyticsCharts({ data }: { data: StudentResult }) {
         <h3 className="mb-4 font-display text-lg font-semibold">Pass Percentage · {passPct}%</h3>
         <ResponsiveContainer width="100%" height={240}>
           <LineChart data={semesterData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
-            <XAxis dataKey="name" stroke="#94A3B8" fontSize={12} />
-            <YAxis stroke="#94A3B8" fontSize={12} />
-            <Tooltip contentStyle={{ background: "#111827", border: "1px solid #ffffff15", borderRadius: 12 }} />
+            <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} />
+            <XAxis dataKey="name" stroke={chart.axis} fontSize={12} />
+            <YAxis stroke={chart.axis} fontSize={12} />
+            <Tooltip contentStyle={chart.tooltip} />
             <Legend />
             <Line type="monotone" dataKey="passed" stroke="#22C55E" strokeWidth={2} />
             <Line type="monotone" dataKey="failed" stroke="#EF4444" strokeWidth={2} />
@@ -125,7 +141,7 @@ export function AnalyticsCharts({ data }: { data: StudentResult }) {
                 <Cell key={i} fill={COLORS[i % COLORS.length]} />
               ))}
             </Pie>
-            <Tooltip contentStyle={{ background: "#111827", border: "1px solid #ffffff15", borderRadius: 12 }} />
+            <Tooltip contentStyle={chart.tooltip} />
             <Legend />
           </PieChart>
         </ResponsiveContainer>
@@ -135,10 +151,10 @@ export function AnalyticsCharts({ data }: { data: StudentResult }) {
         <h3 className="mb-4 font-display text-lg font-semibold">Backlog Analysis</h3>
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={backlogData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
-            <XAxis dataKey="name" stroke="#94A3B8" />
-            <YAxis stroke="#94A3B8" />
-            <Tooltip contentStyle={{ background: "#111827", border: "1px solid #ffffff15", borderRadius: 12 }} />
+            <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} />
+            <XAxis dataKey="name" stroke={chart.axis} />
+            <YAxis stroke={chart.axis} />
+            <Tooltip contentStyle={chart.tooltip} />
             <Bar dataKey="value" radius={[8, 8, 0, 0]}>
               <Cell fill="#22C55E" />
               <Cell fill="#EF4444" />

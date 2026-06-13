@@ -19,12 +19,12 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onClose }: SidebarPro
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex flex-col border-r border-white/10 bg-surface-card transition-all duration-300 lg:sticky lg:top-0 lg:z-30 lg:h-screen",
+          "fixed inset-y-0 left-0 z-50 flex flex-col border-r border-foreground/10 bg-surface-card transition-all duration-300 lg:sticky lg:top-0 lg:z-30 lg:h-screen",
           collapsed ? "w-[88px]" : "w-[280px]",
           mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
-        <div className="flex h-[72px] items-center gap-3 border-b border-white/10 px-4">
+        <div className="flex h-[72px] items-center gap-3 border-b border-foreground/10 px-4">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/20 text-primary-light">
             <GraduationCap className="h-5 w-5" />
           </div>
@@ -52,7 +52,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onClose }: SidebarPro
           ))}
         </nav>
 
-        <div className="hidden border-t border-white/10 p-3 lg:block">
+        <div className="hidden border-t border-foreground/10 p-3 lg:block">
           <button type="button" onClick={onToggle} className="sidebar-link">
             <ChevronLeft className={cn("h-[18px] w-[18px] transition", collapsed && "rotate-180")} />
             {!collapsed && <span>Collapse</span>}

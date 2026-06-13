@@ -41,7 +41,7 @@ export default function CreditsAnalyzerPage() {
               {data.creditsObtained}/{data.creditsTotal}
             </div>
             <p className="mt-2 text-sm text-muted">Credits earned vs required</p>
-            <div className="mx-auto mt-6 h-3 max-w-lg overflow-hidden rounded-full bg-white/10">
+            <div className="mx-auto mt-6 h-3 max-w-lg overflow-hidden rounded-full bg-foreground/10">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${pct}%` }}

@@ -72,9 +72,9 @@ export function HallTicketSearch({
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="absolute z-20 mt-2 w-full overflow-hidden rounded-card border border-white/10 bg-surface-card shadow-glass"
+          className="absolute z-20 mt-2 w-full overflow-hidden rounded-card border border-foreground/10 bg-surface-card shadow-glass"
         >
-          <div className="flex items-center justify-between border-b border-white/10 px-4 py-2">
+          <div className="flex items-center justify-between border-b border-foreground/10 px-4 py-2">
             <span className="text-xs font-medium uppercase tracking-wider text-muted">Recent searches</span>
             <button type="button" onClick={clear} className="text-xs text-primary-light hover:underline">
               Clear
@@ -84,7 +84,7 @@ export function HallTicketSearch({
             <button
               key={ticket}
               type="button"
-              className="flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-white/5"
+              className="flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-foreground/5"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => {
                 setValue(ticket);

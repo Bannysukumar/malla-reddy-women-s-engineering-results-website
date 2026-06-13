@@ -6,7 +6,7 @@ export function MobileNav() {
   const items = MAIN_NAV.slice(0, 5);
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-surface-card/95 backdrop-blur-glass lg:hidden" aria-label="Mobile navigation">
+    <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-foreground/10 bg-surface-card/95 backdrop-blur-glass lg:hidden" aria-label="Mobile navigation">
       <div className="grid grid-cols-5 gap-1 px-2 py-2">
         {items.map((item) => (
           <NavLink

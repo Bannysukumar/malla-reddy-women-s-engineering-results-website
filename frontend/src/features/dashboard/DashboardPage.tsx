@@ -48,7 +48,7 @@ export default function DashboardPage() {
               <Link
                 key={ticket}
                 to={`/academic-results?ticket=${encodeURIComponent(ticket)}`}
-                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 font-mono text-sm transition hover:border-primary/30 hover:bg-primary/10"
+                className="rounded-full border border-foreground/10 bg-foreground/5 px-4 py-2 font-mono text-sm transition hover:border-primary/30 hover:bg-primary/10"
               >
                 {ticket}
               </Link>
@@ -76,10 +76,10 @@ export default function DashboardPage() {
               <Link to={card.path} className="block h-full">
                 <Card className={`group h-full bg-gradient-to-br ${card.gradient} transition hover:border-primary/30 hover:shadow-glow`}>
                   <div className="flex items-start justify-between">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-foreground/10">
                       <card.icon className="h-6 w-6 text-primary-light" />
                     </div>
-                    <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted">
+                    <span className="rounded-full bg-foreground/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted">
                       {card.stat}
                     </span>
                   </div>

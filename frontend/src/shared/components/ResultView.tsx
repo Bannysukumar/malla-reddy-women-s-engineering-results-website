@@ -42,7 +42,7 @@ export function ResultView({ data }: ResultViewProps) {
                 },
                 { label: "Due", value: data.subjectsDue != null ? `${data.subjectsDue}/${data.subjectsTotal}` : "—" },
               ].map((stat) => (
-                <div key={stat.label} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center">
+                <div key={stat.label} className="rounded-2xl border border-foreground/10 bg-foreground/5 px-4 py-3 text-center">
                   <div className="text-xs uppercase tracking-wider text-muted">{stat.label}</div>
                   <div className="mt-1 font-display text-xl font-bold">{stat.value}</div>
                 </div>
@@ -53,7 +53,7 @@ export function ResultView({ data }: ResultViewProps) {
       </Card>
 
       <Card className="overflow-hidden p-0">
-        <div className="border-b border-white/10 px-6 py-4">
+        <div className="border-b border-foreground/10 px-6 py-4">
           <div className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-primary-light" />
             <h3 className="font-display text-lg font-semibold">Subject Performance</h3>
@@ -62,7 +62,7 @@ export function ResultView({ data }: ResultViewProps) {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[640px] text-sm">
             <thead>
-              <tr className="border-b border-white/10 bg-white/5 text-left text-xs uppercase tracking-wider text-muted">
+              <tr className="border-b border-foreground/10 bg-foreground/5 text-left text-xs uppercase tracking-wider text-muted">
                 <th className="px-4 py-3">#</th>
                 <th className="px-4 py-3">Code</th>
                 <th className="px-4 py-3">Subject</th>
@@ -73,7 +73,7 @@ export function ResultView({ data }: ResultViewProps) {
             </thead>
             <tbody>
               {(data.subjects || []).map((sub) => (
-                <tr key={`${sub.sno}-${sub.code}`} className="border-b border-white/5 hover:bg-white/[0.02]">
+                <tr key={`${sub.sno}-${sub.code}`} className="border-b border-foreground/5 hover:bg-foreground/[0.02]">
                   <td className="px-4 py-3">{sub.sno}</td>
                   <td className="px-4 py-3 font-mono text-xs">{sub.code}</td>
                   <td className="px-4 py-3">{sub.name}</td>

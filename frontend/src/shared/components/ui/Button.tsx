@@ -12,7 +12,7 @@ export function Button({ className, variant = "primary", loading, children, disa
       className={cn(
         variant === "primary" && "btn-primary",
         variant === "secondary" && "btn-secondary",
-        variant === "ghost" && "rounded-btn px-4 py-2 text-sm font-medium text-muted hover:bg-white/5 hover:text-white",
+        variant === "ghost" && "rounded-btn px-4 py-2 text-sm font-medium text-muted hover:bg-foreground/5 hover:text-foreground",
         className
       )}
       disabled={disabled || loading}

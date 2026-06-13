@@ -64,7 +64,7 @@ export default function BacklogReportPage() {
             <Card className="overflow-hidden p-0">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-white/10 bg-white/5 text-left text-xs uppercase tracking-wider text-muted">
+                  <tr className="border-b border-foreground/10 bg-foreground/5 text-left text-xs uppercase tracking-wider text-muted">
                     <th className="px-4 py-3">Code</th>
                     <th className="px-4 py-3">Subject</th>
                     <th className="px-4 py-3">Grades</th>
@@ -73,7 +73,7 @@ export default function BacklogReportPage() {
                 </thead>
                 <tbody>
                   {data.backlogs.map((sub) => (
-                    <tr key={`${sub.sno}-${sub.code}`} className="border-b border-white/5">
+                    <tr key={`${sub.sno}-${sub.code}`} className="border-b border-foreground/5">
                       <td className="px-4 py-3 font-mono text-xs">{sub.code}</td>
                       <td className="px-4 py-3">{sub.name}</td>
                       <td className="px-4 py-3">{(sub.grades || []).join(", ") || "—"}</td>

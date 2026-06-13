@@ -70,7 +70,7 @@ export default function ResultComparePage() {
           <Card className="overflow-hidden p-0">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-white/10 bg-white/5 text-left text-xs uppercase tracking-wider text-muted">
+                <tr className="border-b border-foreground/10 bg-foreground/5 text-left text-xs uppercase tracking-wider text-muted">
                   <th className="px-4 py-3">Metric</th>
                   <th className="px-4 py-3">{data.first.hallTicket}</th>
                   <th className="px-4 py-3">{data.second.hallTicket}</th>
@@ -78,7 +78,7 @@ export default function ResultComparePage() {
               </thead>
               <tbody>
                 {data.comparison.metrics.map((row) => (
-                  <tr key={row.label} className="border-b border-white/5">
+                  <tr key={row.label} className="border-b border-foreground/5">
                     <td className="px-4 py-3 font-medium">{row.label}</td>
                     <td className="px-4 py-3">{row.first ?? "—"}</td>
                     <td className="px-4 py-3">{row.second ?? "—"}</td>

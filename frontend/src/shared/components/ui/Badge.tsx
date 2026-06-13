@@ -1,7 +1,7 @@
 import { cn } from "@/shared/lib/cn";
 
 const variants = {
-  default: "bg-white/10 text-white",
+  default: "bg-foreground/10 text-foreground",
   success: "bg-success/15 text-success",
   warning: "bg-warning/15 text-warning",
   error: "bg-error/15 text-error",

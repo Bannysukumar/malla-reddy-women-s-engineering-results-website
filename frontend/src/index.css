@@ -3,26 +3,49 @@
 @tailwind utilities;
 
 @layer base {
+  :root,
+  .light {
+    --foreground: 15 23 42;
+    --surface: 248 250 252;
+    --surface-card: 255 255 255;
+    --surface-elevated: 241 245 249;
+    --muted: 100 116 139;
+    --shadow-card: 0 4px 24px -4px rgba(15, 23, 42, 0.08);
+    --shadow-glow: 0 0 40px -8px rgba(124, 58, 237, 0.25);
+    --shadow-glass: 0 8px 32px rgba(15, 23, 42, 0.06);
+  }
+
+  .dark {
+    --foreground: 255 255 255;
+    --surface: 11 16 32;
+    --surface-card: 17 24 39;
+    --surface-elevated: 31 41 55;
+    --muted: 148 163 184;
+    --shadow-card: 0 4px 24px -4px rgba(0, 0, 0, 0.45);
+    --shadow-glow: 0 0 40px -8px rgba(124, 58, 237, 0.45);
+    --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.35);
+  }
+
   html {
     scroll-behavior: smooth;
   }
 
   body {
-    @apply bg-surface font-sans text-white antialiased;
+    @apply bg-surface font-sans text-foreground antialiased transition-colors duration-300;
   }
 
   * {
-    @apply border-white/5;
+    @apply border-foreground/5;
   }
 }
 
 @layer components {
   .glass-nav {
-    @apply border-b border-white/10 bg-surface/80 backdrop-blur-glass;
+    @apply border-b border-foreground/10 bg-surface/80 backdrop-blur-glass;
   }
 
   .premium-card {
-    @apply rounded-card border border-white/10 bg-surface-card p-6 shadow-card;
+    @apply rounded-card border border-foreground/10 bg-surface-card p-6 shadow-card;
   }
 
   .gradient-text {
@@ -34,15 +57,15 @@
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-btn border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-btn border border-foreground/15 bg-foreground/5 px-5 py-3 text-sm font-semibold text-foreground transition hover:bg-foreground/10 disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .input-field {
-    @apply w-full rounded-btn border border-white/15 bg-surface-elevated/80 px-4 py-3 text-white outline-none transition placeholder:text-muted focus:border-primary-light focus:ring-2 focus:ring-primary/20;
+    @apply w-full rounded-btn border border-foreground/15 bg-surface-elevated/80 px-4 py-3 text-foreground outline-none transition placeholder:text-muted focus:border-primary-light focus:ring-2 focus:ring-primary/20;
   }
 
   .sidebar-link {
-    @apply flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted transition hover:bg-white/5 hover:text-white;
+    @apply flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted transition hover:bg-foreground/5 hover:text-foreground;
   }
 
   .sidebar-link-active {

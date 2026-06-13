@@ -23,7 +23,7 @@ export function TopNav({
 
   return (
     <header className="glass-nav sticky top-0 z-20 flex h-[72px] items-center gap-4 px-4 lg:px-6">
-      <button type="button" onClick={onMenuOpen} className="rounded-xl p-2 text-muted hover:bg-white/5 lg:hidden" aria-label="Open menu">
+      <button type="button" onClick={onMenuOpen} className="rounded-xl p-2 text-muted hover:bg-foreground/5 lg:hidden" aria-label="Open menu">
         <Menu className="h-5 w-5" />
       </button>
 
@@ -44,7 +44,7 @@ export function TopNav({
         <button
           type="button"
           onClick={onToggleTheme}
-          className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 transition hover:bg-white/10"
+          className="flex h-10 w-10 items-center justify-center rounded-xl border border-foreground/10 bg-foreground/5 transition hover:bg-foreground/10"
           aria-label="Toggle theme"
         >
           {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -52,12 +52,12 @@ export function TopNav({
         <button
           type="button"
           onClick={() => navigate("/notifications")}
-          className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 transition hover:bg-white/10"
+          className="flex h-10 w-10 items-center justify-center rounded-xl border border-foreground/10 bg-foreground/5 transition hover:bg-foreground/10"
           aria-label="Notifications"
         >
           <Bell className="h-4 w-4" />
         </button>
-        <div className="hidden items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 sm:flex">
+        <div className="hidden items-center gap-2 rounded-xl border border-foreground/10 bg-foreground/5 px-3 py-2 sm:flex">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/20 text-xs font-bold text-primary-light">M</div>
           <div className="text-left leading-tight">
             <div className="text-xs font-semibold">MRECW Student</div>

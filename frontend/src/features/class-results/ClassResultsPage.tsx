@@ -56,7 +56,7 @@ export default function ClassResultsPage() {
       {error && <div className="rounded-card border border-error/30 bg-error/10 px-4 py-3 text-sm text-error">{error}</div>}
       {progress && (
         <Card>
-          <div className="h-2 overflow-hidden rounded-full bg-white/10">
+          <div className="h-2 overflow-hidden rounded-full bg-foreground/10">
             <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progress.pct}%` }} />
           </div>
           <p className="mt-2 text-sm text-muted">{progress.text}</p>
@@ -84,7 +84,7 @@ export default function ClassResultsPage() {
           <Card className="overflow-hidden p-0">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-white/10 bg-white/5 text-left text-xs uppercase tracking-wider text-muted">
+                <tr className="border-b border-foreground/10 bg-foreground/5 text-left text-xs uppercase tracking-wider text-muted">
                   <th className="px-4 py-3">Rank</th>
                   <th className="px-4 py-3">Hall Ticket</th>
                   <th className="px-4 py-3">Name</th>
@@ -93,7 +93,7 @@ export default function ClassResultsPage() {
               </thead>
               <tbody>
                 {data.students.map((s, i) => (
-                  <tr key={s.hallTicket} className="border-b border-white/5">
+                  <tr key={s.hallTicket} className="border-b border-foreground/5">
                     <td className="px-4 py-3">{i + 1}</td>
                     <td className="px-4 py-3 font-mono text-xs">{s.hallTicket}</td>
                     <td className="px-4 py-3">{s.studentName || "—"}</td>
