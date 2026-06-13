@@ -1,16 +1,10 @@
 {
-  "name": "MRECW Results",
+  "name": "MRECW Results Portal",
   "short_name": "MRECW",
-  "description": "Malla Reddy Engineering College for Women exam results portal",
+  "description": "Premium academic results portal for Malla Reddy Engineering College for Women",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0a0a12",
-  "theme_color": "#7c3aed",
-  "icons": [
-    {
-      "src": "/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml"
-    }
-  ]
+  "background_color": "#0B1020",
+  "theme_color": "#7C3AED",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
 }
