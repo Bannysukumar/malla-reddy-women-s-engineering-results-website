@@ -2,7 +2,7 @@ import { useState } from "react";
 import { fetchIndividualResults } from "../lib/api";
 import { SearchIcon } from "./Icons";
 
-export default function IndividualResults({ embedded = false }) {
+export default function IndividualResults() {
   const [hallTicket, setHallTicket] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -30,12 +30,10 @@ export default function IndividualResults({ embedded = false }) {
 
   return (
     <div>
-      <form onSubmit={handleSubmit} className={embedded ? "" : "card p-6"}>
-        {!embedded && (
-          <label htmlFor="hallTicket" className="mb-2 block text-sm font-medium text-[rgb(var(--text-muted))]">
-            Hall Ticket Number
-          </label>
-        )}
+      <form onSubmit={handleSubmit} className="card p-6">
+        <label htmlFor="hallTicket" className="mb-2 block text-sm font-medium text-[rgb(var(--text-muted))]">
+          Hall Ticket Number
+        </label>
         <div className="relative">
           <SearchIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[rgb(var(--text-muted))]" />
           <input
@@ -50,15 +48,13 @@ export default function IndividualResults({ embedded = false }) {
             aria-label="Hall ticket number"
           />
         </div>
-        <button type="submit" className="btn-primary mt-4" disabled={loading}>
+        <button type="submit" className="btn-primary mt-4 sm:w-auto" disabled={loading}>
           <SearchIcon className="h-4 w-4" />
           {loading ? "Fetching Results…" : "Get Results"}
         </button>
-        {embedded && (
-          <p className="mt-3 text-xs text-[rgb(var(--text-muted))]">
-            View semester grades, overall marks, CGPA, and credits instantly.
-          </p>
-        )}
+        <p className="mt-3 text-xs text-[rgb(var(--text-muted))]">
+          View semester grades, overall marks, CGPA, and credits instantly.
+        </p>
       </form>
 
       {error && (

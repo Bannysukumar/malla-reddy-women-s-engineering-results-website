@@ -1,7 +1,18 @@
 import { Helmet } from "react-helmet-async";
 import { SITE_URL, SEO, FAQ_ITEMS } from "../lib/api";
+import { PAGES } from "../lib/routes";
 
-export default function SEOHead() {
+const PAGE_TITLES = {
+  [PAGES.home.id]: "MRECW Results — Academic Results Portal",
+  [PAGES.academicResult.id]: "Academic Result — MRECW Results",
+  [PAGES.backlogReport.id]: "Backlog Report — MRECW Results",
+  [PAGES.classResult.id]: "Class Result — MRECW Results",
+  [PAGES.resultContrast.id]: "Result Contrast — MRECW Results",
+  [PAGES.helpCenter.id]: "Help Center — MRECW Results",
+};
+
+export default function SEOHead({ pageId = PAGES.home.id }) {
+  const pageTitle = PAGE_TITLES[pageId] || SEO.title;
   const faqSchema = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
@@ -58,7 +69,7 @@ export default function SEOHead() {
   return (
     <Helmet>
       <html lang="en" />
-      <title>{SEO.title}</title>
+      <title>{pageTitle}</title>
       <meta name="description" content={SEO.description} />
       <meta name="keywords" content={SEO.keywords} />
       <meta name="robots" content="index, follow, max-image-preview:large" />

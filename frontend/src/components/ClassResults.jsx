@@ -9,7 +9,7 @@ const DEFAULT = {
   rollDigits: 2,
 };
 
-export default function ClassResults({ embedded = false }) {
+export default function ClassResults() {
   const [form, setForm] = useState(DEFAULT);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -69,7 +69,7 @@ export default function ClassResults({ embedded = false }) {
 
   return (
     <div>
-      <form onSubmit={handleSubmit} className={embedded ? "space-y-4" : "card space-y-4 p-6"}>
+      <form onSubmit={handleSubmit} className="card space-y-4 p-6">
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <label className="mb-1.5 block text-xs font-medium text-[rgb(var(--text-muted))]">Sample Hall Ticket</label>
