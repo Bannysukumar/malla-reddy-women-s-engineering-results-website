@@ -47,6 +47,28 @@ export async function fetchIndividualResults(hallTicket) {
   return data;
 }
 
+export async function fetchBacklogReport(hallTicket) {
+  const res = await fetch(apiUrl("/api/backlog-report"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ hallTicket }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Could not fetch backlog report");
+  return data;
+}
+
+export async function fetchResultContrast(hallTicketA, hallTicketB) {
+  const res = await fetch(apiUrl("/api/result-contrast"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ hallTicketA, hallTicketB }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Could not compare results");
+  return data;
+}
+
 export async function streamClassResults(payload, onEvent) {
   const res = await fetch(apiUrl("/api/class-results"), {
     method: "POST",

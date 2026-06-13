@@ -1,6 +1,12 @@
 from flask import Flask, jsonify, request, send_from_directory, Response
 from flask_cors import CORS
-from scraper import fetch_class_results, infer_prefix, login_and_fetch_marks
+from scraper import (
+    fetch_backlog_report,
+    fetch_class_results,
+    fetch_result_contrast,
+    infer_prefix,
+    login_and_fetch_marks,
+)
 import json
 import os
 
@@ -44,13 +50,20 @@ def index():
     return jsonify({"service": "mrecw-connect-api", "status": "ok"})
 
 
+def _validate_hall_ticket(hall_ticket: str):
+    hall_ticket = (hall_ticket or "").strip().upper()
+    if not hall_ticket:
+        return None, (jsonify({"error": "Hall ticket required"}), 400)
+    if len(hall_ticket) < 6 or len(hall_ticket) > 20:
+        return None, (jsonify({"error": "Invalid hall ticket format"}), 400)
+    return hall_ticket, None
+
+
 @app.route("/api/results/<hall_ticket>")
 def get_results(hall_ticket):
-    hall_ticket = hall_ticket.strip().upper()
-    if not hall_ticket:
-        return jsonify({"error": "Hall ticket required"}), 400
-    if len(hall_ticket) < 6 or len(hall_ticket) > 20:
-        return jsonify({"error": "Invalid hall ticket format"}), 400
+    hall_ticket, err = _validate_hall_ticket(hall_ticket)
+    if err:
+        return err
 
     try:
         data = login_and_fetch_marks(hall_ticket)
@@ -65,10 +78,63 @@ def get_results(hall_ticket):
 @app.route("/api/results", methods=["POST"])
 def post_results():
     body = request.get_json(silent=True) or {}
-    hall_ticket = (body.get("hallTicket") or "").strip().upper()
-    if not hall_ticket:
-        return jsonify({"error": "Hall ticket required"}), 400
+    hall_ticket = body.get("hallTicket") or body.get("hall_ticket") or ""
+    hall_ticket, err = _validate_hall_ticket(hall_ticket)
+    if err:
+        return err
     return get_results(hall_ticket)
+
+
+@app.route("/api/backlog-report/<hall_ticket>")
+def get_backlog_report(hall_ticket):
+    hall_ticket, err = _validate_hall_ticket(hall_ticket)
+    if err:
+        return err
+
+    try:
+        data = fetch_backlog_report(hall_ticket)
+    except Exception as exc:
+        return jsonify({"error": f"Failed to fetch backlog report: {exc}"}), 500
+
+    if "error" in data:
+        return jsonify(data), 404
+    return jsonify(data)
+
+
+@app.route("/api/backlog-report", methods=["POST"])
+def post_backlog_report():
+    body = request.get_json(silent=True) or {}
+    hall_ticket = body.get("hallTicket") or body.get("hall_ticket") or ""
+    hall_ticket, err = _validate_hall_ticket(hall_ticket)
+    if err:
+        return err
+    return get_backlog_report(hall_ticket)
+
+
+@app.route("/api/result-contrast", methods=["POST"])
+def post_result_contrast():
+    body = request.get_json(silent=True) or {}
+    ticket_a = (body.get("hallTicketA") or body.get("firstHallTicket") or body.get("ticketA") or "").strip().upper()
+    ticket_b = (body.get("hallTicketB") or body.get("secondHallTicket") or body.get("ticketB") or "").strip().upper()
+
+    ticket_a, err = _validate_hall_ticket(ticket_a)
+    if err:
+        return err
+    ticket_b, err = _validate_hall_ticket(ticket_b)
+    if err:
+        return err
+
+    if ticket_a == ticket_b:
+        return jsonify({"error": "Enter two different hall tickets to compare"}), 400
+
+    try:
+        data = fetch_result_contrast(ticket_a, ticket_b)
+    except Exception as exc:
+        return jsonify({"error": f"Failed to compare results: {exc}"}), 500
+
+    if "error" in data:
+        return jsonify(data), 404
+    return jsonify(data)
 
 
 @app.route("/api/class-results", methods=["POST"])

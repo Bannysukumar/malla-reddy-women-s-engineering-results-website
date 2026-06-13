@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { fetchIndividualResults } from "../lib/api";
+import { fetchResultContrast } from "../lib/api";
 import ResultPageShell, { ResultButton, ShellInput } from "../components/ResultPageShell";
 
 export default function ResultContrastPage() {
@@ -7,7 +7,7 @@ export default function ResultContrastPage() {
   const [ticketB, setTicketB] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [results, setResults] = useState(null);
+  const [data, setData] = useState(null);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -17,11 +17,10 @@ export default function ResultContrastPage() {
 
     setLoading(true);
     setError("");
-    setResults(null);
+    setData(null);
 
     try {
-      const [dataA, dataB] = await Promise.all([fetchIndividualResults(a), fetchIndividualResults(b)]);
-      setResults({ a: dataA, b: dataB });
+      setData(await fetchResultContrast(a, b));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -29,24 +28,23 @@ export default function ResultContrastPage() {
     }
   }
 
-  const cgpaDiff =
-    results?.a?.cgpa && results?.b?.cgpa
-      ? (parseFloat(results.a.cgpa) - parseFloat(results.b.cgpa)).toFixed(2)
-      : null;
+  const cgpaDiff = data?.comparison?.cgpaDifference;
 
   return (
     <ResultPageShell
       title="Result Contrast"
       error={error}
       loading={loading}
+      loadingMessage="Comparing results… this may take up to 60 seconds."
       results={
-        results && (
+        data && (
           <div className="space-y-4">
             <div className="grid gap-4 lg:grid-cols-2">
-              {[results.a, results.b].map((r) => (
+              {[data.first, data.second].map((r) => (
                 <div key={r.hallTicket} className="card p-5">
                   <h3 className="font-display text-lg font-bold">{r.studentName || "Student"}</h3>
                   <p className="text-sm text-brand-400">{r.hallTicket}</p>
+                  {r.branch && <p className="text-sm text-[rgb(var(--text-muted))]">{r.branch}</p>}
                   <dl className="mt-4 grid grid-cols-3 gap-3 text-center">
                     <div>
                       <dt className="text-xs text-[rgb(var(--text-muted))]">CGPA</dt>
@@ -59,22 +57,44 @@ export default function ResultContrastPage() {
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-xs text-[rgb(var(--text-muted))]">Due</dt>
-                      <dd className="font-display text-xl font-bold">{r.subjectsDue ?? "—"}</dd>
+                      <dt className="text-xs text-[rgb(var(--text-muted))]">Backlogs</dt>
+                      <dd className="font-display text-xl font-bold">{r.backlogCount ?? "—"}</dd>
                     </div>
                   </dl>
                 </div>
               ))}
             </div>
+
             {cgpaDiff != null && (
               <div className="card p-4 text-center text-sm">
                 CGPA difference (first − second):{" "}
-                <span className={`font-display text-lg font-bold ${parseFloat(cgpaDiff) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                  {parseFloat(cgpaDiff) > 0 ? "+" : ""}
+                <span className={`font-display text-lg font-bold ${cgpaDiff >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                  {cgpaDiff > 0 ? "+" : ""}
                   {cgpaDiff}
                 </span>
               </div>
             )}
+
+            <div className="overflow-x-auto rounded-2xl border border-[rgb(var(--border)/0.08)]">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[rgb(var(--border)/0.08)] bg-[rgb(var(--border)/0.04)] text-left text-xs uppercase tracking-wider text-[rgb(var(--text-muted))]">
+                    <th className="px-4 py-3">Metric</th>
+                    <th className="px-4 py-3">{data.first.hallTicket}</th>
+                    <th className="px-4 py-3">{data.second.hallTicket}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(data.comparison?.metrics || []).map((row) => (
+                    <tr key={row.label} className="border-b border-[rgb(var(--border)/0.04)]">
+                      <td className="px-4 py-3 font-medium">{row.label}</td>
+                      <td className="px-4 py-3">{row.first ?? "—"}</td>
+                      <td className="px-4 py-3">{row.second ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )
       }

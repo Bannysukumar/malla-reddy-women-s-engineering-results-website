@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { fetchIndividualResults } from "../lib/api";
+import { fetchBacklogReport } from "../lib/api";
 import ResultPageShell, { ResultButton, ShellInput } from "../components/ResultPageShell";
 
 export default function BacklogReportPage() {
@@ -18,17 +18,13 @@ export default function BacklogReportPage() {
     setData(null);
 
     try {
-      setData(await fetchIndividualResults(ticket));
+      setData(await fetchBacklogReport(ticket));
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
   }
-
-  const backlogs = (data?.subjects || []).filter(
-    (s) => s.status === "F" || s.status === "f" || (s.grades || []).some((g) => g === "F")
-  );
 
   return (
     <ResultPageShell
@@ -41,7 +37,7 @@ export default function BacklogReportPage() {
             <div className="grid gap-4 sm:grid-cols-3">
               {[
                 { label: "Student", value: data.studentName || "—" },
-                { label: "Backlogs", value: backlogs.length },
+                { label: "Backlogs", value: data.backlogCount ?? 0 },
                 { label: "Subjects Due", value: data.subjectsDue ?? "—" },
               ].map((s) => (
                 <div key={s.label} className="card p-4 text-center">
@@ -50,7 +46,7 @@ export default function BacklogReportPage() {
                 </div>
               ))}
             </div>
-            {backlogs.length === 0 ? (
+            {(data.backlogs || []).length === 0 ? (
               <div className="card p-6 text-center text-[rgb(var(--text-muted))]">No backlog subjects found.</div>
             ) : (
               <div className="overflow-x-auto rounded-2xl border border-[rgb(var(--border)/0.08)]">
@@ -64,7 +60,7 @@ export default function BacklogReportPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {backlogs.map((sub) => (
+                    {data.backlogs.map((sub) => (
                       <tr key={`${sub.sno}-${sub.code}`} className="border-b border-[rgb(var(--border)/0.04)]">
                         <td className="px-4 py-3 font-mono text-xs">{sub.code}</td>
                         <td className="px-4 py-3">{sub.name}</td>

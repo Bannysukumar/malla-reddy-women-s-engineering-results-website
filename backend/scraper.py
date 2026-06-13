@@ -229,6 +229,140 @@ def parse_marks_page(html: str, hall_ticket: str, summary_only: bool = False) ->
     return result
 
 
+def is_backlog_subject(subject: dict) -> bool:
+    status = (subject.get("status") or "").upper()
+    if status == "F":
+        return True
+    grades = subject.get("grades") or []
+    return any(str(g).upper() == "F" for g in grades)
+
+
+def extract_backlogs(data: dict) -> list:
+    return [s for s in (data.get("subjects") or []) if is_backlog_subject(s)]
+
+
+def build_backlog_report(data: dict) -> dict:
+    backlogs = extract_backlogs(data)
+    return {
+        "hallTicket": data.get("hallTicket"),
+        "studentName": data.get("studentName"),
+        "branch": data.get("branch"),
+        "cgpa": data.get("cgpa"),
+        "creditsObtained": data.get("creditsObtained"),
+        "creditsTotal": data.get("creditsTotal"),
+        "subjectsDue": data.get("subjectsDue"),
+        "subjectsTotal": data.get("subjectsTotal"),
+        "backlogCount": len(backlogs),
+        "backlogs": backlogs,
+    }
+
+
+def _parse_float(value):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def build_result_contrast(data_a: dict, data_b: dict) -> dict:
+    backlogs_a = extract_backlogs(data_a)
+    backlogs_b = extract_backlogs(data_b)
+
+    cgpa_a = _parse_float(data_a.get("cgpa"))
+    cgpa_b = _parse_float(data_b.get("cgpa"))
+    cgpa_diff = round(cgpa_a - cgpa_b, 2) if cgpa_a is not None and cgpa_b is not None else None
+
+    credits_a = _parse_float(data_a.get("creditsObtained"))
+    credits_b = _parse_float(data_b.get("creditsObtained"))
+    credits_diff = round(credits_a - credits_b, 2) if credits_a is not None and credits_b is not None else None
+
+    def summary(data, backlog_count):
+        return {
+            "hallTicket": data.get("hallTicket"),
+            "studentName": data.get("studentName"),
+            "branch": data.get("branch"),
+            "cgpa": data.get("cgpa"),
+            "creditsObtained": data.get("creditsObtained"),
+            "creditsTotal": data.get("creditsTotal"),
+            "subjectsDue": data.get("subjectsDue"),
+            "subjectsTotal": data.get("subjectsTotal"),
+            "backlogCount": backlog_count,
+        }
+
+    return {
+        "first": summary(data_a, len(backlogs_a)),
+        "second": summary(data_b, len(backlogs_b)),
+        "comparison": {
+            "cgpaDifference": cgpa_diff,
+            "creditsDifference": credits_diff,
+            "backlogCountFirst": len(backlogs_a),
+            "backlogCountSecond": len(backlogs_b),
+            "metrics": [
+                {
+                    "label": "CGPA",
+                    "first": data_a.get("cgpa"),
+                    "second": data_b.get("cgpa"),
+                },
+                {
+                    "label": "Credits",
+                    "first": _credits_label(data_a),
+                    "second": _credits_label(data_b),
+                },
+                {
+                    "label": "Subjects Due",
+                    "first": data_a.get("subjectsDue"),
+                    "second": data_b.get("subjectsDue"),
+                },
+                {
+                    "label": "Backlogs",
+                    "first": len(backlogs_a),
+                    "second": len(backlogs_b),
+                },
+            ],
+        },
+    }
+
+
+def _credits_label(data: dict) -> str:
+    obtained = data.get("creditsObtained")
+    total = data.get("creditsTotal")
+    if obtained and total:
+        return f"{obtained}/{total}"
+    return obtained or total or "—"
+
+
+def fetch_backlog_report(hall_ticket: str) -> dict:
+    data = login_and_fetch_marks(hall_ticket)
+    if "error" in data:
+        return data
+    return build_backlog_report(data)
+
+
+def fetch_result_contrast(ticket_a: str, ticket_b: str) -> dict:
+    ticket_a = ticket_a.strip().upper()
+    ticket_b = ticket_b.strip().upper()
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        context = browser.new_context(user_agent=USER_AGENT)
+        page = context.new_page()
+        try:
+            data_a = _fetch_marks(page, ticket_a, summary_only=False)
+            if "error" in data_a:
+                return data_a
+
+            time.sleep(1)
+            context.clear_cookies()
+
+            data_b = _fetch_marks(page, ticket_b, summary_only=False)
+            if "error" in data_b:
+                return data_b
+
+            return build_result_contrast(data_a, data_b)
+        finally:
+            browser.close()
+
+
 if __name__ == "__main__":
     import json
     import os
