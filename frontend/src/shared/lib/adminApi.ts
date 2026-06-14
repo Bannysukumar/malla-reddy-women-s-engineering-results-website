@@ -20,9 +20,22 @@ export interface AdminStats {
   storedClassResults: number;
   storedResultCompares: number;
   storedCreditsCompares: number;
+  storedExamHallTickets?: number;
+  storedAttendance?: number;
+  storedOverallResults?: number;
+  storedSemwiseMarks?: number;
   lastAnalyticsUpdate?: string;
   hardScrapeRunning?: boolean;
+  bulkScrapeRunning?: Record<string, boolean>;
 }
+
+export type AdminScrapeJobType =
+  | "results"
+  | "attendance"
+  | "overall-result"
+  | "semwise-marks"
+  | "exam-hall-tickets"
+  | "class-results";
 
 export function getAdminToken(): string | null {
   return localStorage.getItem(ADMIN_TOKEN_KEY);
@@ -73,14 +86,18 @@ export async function fetchAdminStats(): Promise<AdminStats> {
 }
 
 export async function streamHardScrape(onEvent: (event: Record<string, unknown>) => void) {
-  const res = await fetch(apiUrl("/api/admin/hard-scrape"), {
+  return streamAdminScrape("results", onEvent);
+}
+
+export async function streamAdminScrape(jobType: AdminScrapeJobType, onEvent: (event: Record<string, unknown>) => void) {
+  const res = await fetch(apiUrl(`/api/admin/scrape/${encodeURIComponent(jobType)}`), {
     method: "POST",
     headers: adminHeaders(),
   });
 
   if (!res.ok) {
     const err = await res.json();
-    throw new Error(err.error || "Hard scrape failed to start");
+    throw new Error(err.error || "Bulk scrape failed to start");
   }
 
   const reader = res.body!.getReader();

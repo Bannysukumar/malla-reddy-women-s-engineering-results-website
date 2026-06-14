@@ -19,9 +19,25 @@ export const PAGE_SEO: Record<string, { title: string; description: string }> = 
     title: "Academic Results — MRECW Results Portal",
     description: "Check individual academic results, CGPA and semester grades by hall ticket.",
   },
+  "/semwise-marks": {
+    title: "Semester-wise Marks — MRECW Results Portal",
+    description: "View subject marks grouped by semester for MRECW students.",
+  },
+  "/overall-result": {
+    title: "Overall Result — MRECW Results Portal",
+    description: "View semester-wise SGPA and cumulative CGPA for MRECW students.",
+  },
+  "/attendance": {
+    title: "Overall Attendance — MRECW Results Portal",
+    description: "View month-wise and semester-wise attendance for MRECW students.",
+  },
   "/backlog-report": {
     title: "Backlog Report — MRECW Results Portal",
     description: "View backlog subjects and failed courses for MRECW students.",
+  },
+  "/exam-hall-tickets": {
+    title: "Exam Hall Tickets — MRECW Results Portal",
+    description: "View external exam hall tickets, exam dates and centers from the MRECW exam cell portal.",
   },
   "/class-results": {
     title: "Class Results — MRECW Results Portal",

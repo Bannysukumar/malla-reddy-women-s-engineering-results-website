@@ -15,6 +15,7 @@ export interface ResultMeta {
   responseMs?: number;
   cachedAtA?: string;
   cachedAtB?: string;
+  inProgress?: boolean;
 }
 
 export interface StudentResult {
@@ -113,6 +114,12 @@ export interface ClassStudent {
   subjectsDue?: string;
 }
 
+export interface ClassScrapeProgress {
+  current: number;
+  total: number;
+  hallTicket?: string | null;
+}
+
 export interface ClassResult {
   prefix: string;
   startRoll: number;
@@ -124,9 +131,120 @@ export interface ClassResult {
   classAverageCgpa?: number | null;
   students: ClassStudent[];
   failed: { hallTicket: string; error: string }[];
+  scrapeStatus?: "in_progress" | "complete";
+  scrapeProgress?: ClassScrapeProgress;
   _meta?: ResultMeta;
 }
 
-export interface ApiError {
-  error: string;
+export interface ExamHallTicketEntry {
+  examType?: string | null;
+  semester?: string | null;
+  monthYear?: string | null;
+  hallTicketNumber?: string | null;
+  examDate?: string | null;
+  examCenter?: string | null;
+  subjects: string[];
+  rawText?: string;
 }
+
+export interface ExamHallTickets {
+  hallTicket: string;
+  studentName?: string | null;
+  branch?: string | null;
+  program?: string | null;
+  sourceUrl?: string;
+  sessionsFound?: number;
+  tickets: ExamHallTicketEntry[];
+  message?: string | null;
+  error?: string;
+  _meta?: ResultMeta;
+}
+
+export interface AttendanceMonth {
+  month: string;
+  conducted: number | null;
+  attended: number | null;
+  percentage: number | null;
+}
+
+export interface AttendanceSemesterSummary {
+  conducted: number | null;
+  attended: number | null;
+  percentage: number | null;
+}
+
+export interface AttendanceSemester {
+  semester: string;
+  months: AttendanceMonth[];
+  summary: AttendanceSemesterSummary | null;
+}
+
+export interface StudentAttendance {
+  hallTicket: string;
+  studentName?: string | null;
+  branch?: string | null;
+  program?: string | null;
+  currentSemester?: string | null;
+  activeSemester?: string | null;
+  overallPercentage?: number | null;
+  currentSemesterAvailable?: boolean;
+  sourceUrl?: string;
+  semesters: AttendanceSemester[];
+  message?: string | null;
+  error?: string;
+  _meta?: ResultMeta;
+}
+
+export interface OverallResultSemester {
+  sno?: string | null;
+  semester: string;
+  sgpa: number | null;
+  cgpa: number | null;
+  semesterEndAttendance: number | null;
+}
+
+export interface StudentOverallResult {
+  hallTicket: string;
+  studentName?: string | null;
+  branch?: string | null;
+  program?: string | null;
+  currentSemester?: string | null;
+  latestSemester?: string | null;
+  latestCgpa?: number | null;
+  currentSemesterAvailable?: boolean;
+  sourceUrl?: string;
+  semesters: OverallResultSemester[];
+  message?: string | null;
+  error?: string;
+  _meta?: ResultMeta;
+}
+
+export interface SemwiseMarksSemester {
+  semester: string;
+  examMonth?: string | null;
+  sgpa?: number | null;
+  cgpa?: number | null;
+  totalCredits?: string | null;
+  subjectsPassed?: number | null;
+  subjects: Subject[];
+}
+
+export interface StudentSemwiseMarks {
+  hallTicket: string;
+  studentName?: string | null;
+  branch?: string | null;
+  program?: string | null;
+  currentSemester?: string | null;
+  cgpa?: string | null;
+  percentage?: string | null;
+  creditsObtained?: string | null;
+  creditsTotal?: string | null;
+  subjectsDue?: string | null;
+  subjectsTotal?: string | null;
+  sourceUrl?: string;
+  semesters: SemwiseMarksSemester[];
+  message?: string | null;
+  error?: string;
+  _meta?: ResultMeta;
+}
+

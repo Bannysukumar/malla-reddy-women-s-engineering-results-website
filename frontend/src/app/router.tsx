@@ -6,7 +6,11 @@ import { AdminLayout } from "@/layouts/AdminLayout";
 
 const DashboardPage = lazy(() => import("@/features/dashboard/DashboardPage"));
 const AcademicResultsPage = lazy(() => import("@/features/results/AcademicResultsPage"));
+const SemwiseMarksPage = lazy(() => import("@/features/semwise-marks/SemwiseMarksPage"));
+const OverallResultPage = lazy(() => import("@/features/overall-result/OverallResultPage"));
+const AttendancePage = lazy(() => import("@/features/attendance/AttendancePage"));
 const BacklogReportPage = lazy(() => import("@/features/backlog/BacklogReportPage"));
+const ExamHallTicketsPage = lazy(() => import("@/features/exam-hall-tickets/ExamHallTicketsPage"));
 const ClassResultsPage = lazy(() => import("@/features/class-results/ClassResultsPage"));
 const CreditsAnalyzerPage = lazy(() => import("@/features/credits/CreditsAnalyzerPage"));
 const CreditsComparePage = lazy(() => import("@/features/credits/CreditsComparePage"));
@@ -27,7 +31,11 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <DashboardPage /> },
       { path: "academic-results", element: <AcademicResultsPage /> },
+      { path: "semwise-marks", element: <SemwiseMarksPage /> },
+      { path: "overall-result", element: <OverallResultPage /> },
+      { path: "attendance", element: <AttendancePage /> },
       { path: "backlog-report", element: <BacklogReportPage /> },
+      { path: "exam-hall-tickets", element: <ExamHallTicketsPage /> },
       { path: "class-results", element: <ClassResultsPage /> },
       { path: "credits-analyzer", element: <CreditsAnalyzerPage /> },
       { path: "credits-compare", element: <CreditsComparePage /> },

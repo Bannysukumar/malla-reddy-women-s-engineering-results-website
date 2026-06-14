@@ -12,29 +12,307 @@ from firebase_cache import (
     class_cache_key,
     contrast_cache_key,
     data_differ,
+    get_cached_attendance,
     get_cached_backlog,
     get_cached_class,
     get_cached_contrast,
     get_cached_credits_contrast,
+    get_cached_exam_hall_tickets,
+    get_cached_overall_result,
     get_cached_result,
+    get_cached_semwise_marks,
     init_firebase,
     is_enabled,
+    save_attendance,
     save_class_result,
     save_contrast,
     save_credits_contrast,
+    save_exam_hall_tickets,
+    save_overall_result,
     save_result,
+    save_semwise_marks,
     log_search,
     to_summary,
 )
-from scraper import build_backlog_report, build_credits_contrast, build_result_contrast, build_hall_ticket, fetch_class_results, login_and_fetch_marks
+from scraper import (
+    USER_AGENT,
+    _fetch_marks,
+    build_backlog_report,
+    build_credits_contrast,
+    build_hall_ticket,
+    build_result_contrast,
+    fetch_class_results,
+    login_and_fetch_marks,
+)
+from exam_hall_ticket import fetch_exam_hall_tickets
+from attendance import fetch_student_attendance
+from overall_result import fetch_student_overall_result
+from semwise_marks import fetch_student_semwise_marks
 
 logger = logging.getLogger(__name__)
 
 _refresh_in_progress: set[str] = set()
 _refresh_guard = threading.Lock()
+_class_scrape_jobs: dict[str, dict[str, Any]] = {}
+_class_scrape_jobs_lock = threading.Lock()
 
 
-def _meta(source: str, *, cached: bool, cached_at: str | None = None, updated: bool = False, response_ms: float | None = None) -> dict:
+def _utc_now_iso() -> str:
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _class_job_push_event(key: str, event: dict[str, Any]) -> None:
+    with _class_scrape_jobs_lock:
+        job = _class_scrape_jobs.get(key)
+        if job is not None:
+            job["events"].append(event)
+
+
+def get_class_scrape_job(key: str) -> dict[str, Any] | None:
+    with _class_scrape_jobs_lock:
+        job = _class_scrape_jobs.get(key)
+        return dict(job) if job else None
+
+
+def is_class_scrape_running(key: str) -> bool:
+    with _class_scrape_jobs_lock:
+        job = _class_scrape_jobs.get(key)
+        return bool(job and job.get("status") == "running")
+
+
+def _save_partial_class_result(
+    key: str,
+    students: list,
+    failed: list,
+    prefix: str,
+    start_roll: int,
+    end_roll: int,
+    roll_digits: int,
+    *,
+    current: int,
+    total: int,
+    hall_ticket: str | None,
+) -> dict:
+    result = finalize_class_result(students, failed, prefix, start_roll, end_roll, roll_digits)
+    result["scrapeStatus"] = "in_progress"
+    result["scrapeProgress"] = {
+        "current": current,
+        "total": total,
+        "hallTicket": hall_ticket,
+    }
+    if is_enabled():
+        save_class_result(key, result)
+    return result
+
+
+def _execute_class_scrape(
+    key: str,
+    prefix: str,
+    start_roll: int,
+    end_roll: int,
+    roll_digits: int,
+    delay_sec: float,
+    *,
+    force_refresh: bool = False,
+) -> None:
+    init_firebase()
+    total = end_roll - start_roll + 1
+    tickets = [build_hall_ticket(prefix, roll, roll_digits) for roll in range(start_roll, end_roll + 1)]
+    students: list[dict] = []
+    failed: list[dict] = []
+
+    _class_job_push_event(key, {"type": "start", "total": total, "prefix": prefix})
+
+    all_cached = not force_refresh and is_enabled()
+    if all_cached:
+        for ticket in tickets:
+            cached = get_cached_result(ticket)
+            if not cached:
+                all_cached = False
+                break
+
+    try:
+        if all_cached:
+            for index, ticket in enumerate(tickets):
+                _class_job_push_event(key, {
+                    "type": "progress",
+                    "current": index + 1,
+                    "total": total,
+                    "hallTicket": ticket,
+                    "cached": True,
+                })
+                student = resolve_class_student(ticket, force_refresh=False)
+                if "error" in student:
+                    item = {"hallTicket": ticket, "error": student["error"]}
+                    failed.append(item)
+                    _class_job_push_event(key, {"type": "failed", "student": item})
+                else:
+                    students.append(student)
+                    _class_job_push_event(key, {"type": "student", "student": student, "cached": True})
+                _save_partial_class_result(
+                    key, students, failed, prefix, start_roll, end_roll, roll_digits,
+                    current=index + 1, total=total, hall_ticket=ticket,
+                )
+        else:
+            from playwright.sync_api import sync_playwright
+
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                context = browser.new_context(user_agent=USER_AGENT)
+                page = context.new_page()
+                try:
+                    for index, ticket in enumerate(tickets):
+                        if index > 0:
+                            time.sleep(delay_sec)
+                            context.clear_cookies()
+
+                        _class_job_push_event(key, {
+                            "type": "progress",
+                            "current": index + 1,
+                            "total": total,
+                            "hallTicket": ticket,
+                        })
+
+                        if not force_refresh and is_enabled():
+                            cached = resolve_class_student(ticket, force_refresh=False)
+                            if "error" not in cached:
+                                students.append(cached)
+                                _class_job_push_event(key, {"type": "student", "student": cached, "cached": True})
+                                _save_partial_class_result(
+                                    key, students, failed, prefix, start_roll, end_roll, roll_digits,
+                                    current=index + 1, total=total, hall_ticket=ticket,
+                                )
+                                continue
+
+                        try:
+                            data = _fetch_marks(page, ticket, summary_only=True)
+                            if "error" in data:
+                                item = {"hallTicket": ticket, "error": data["error"]}
+                                failed.append(item)
+                                _class_job_push_event(key, {"type": "failed", "student": item})
+                            else:
+                                summary = to_summary(data)
+                                if is_enabled():
+                                    save_result(ticket, data)
+                                students.append(summary)
+                                _class_job_push_event(key, {"type": "student", "student": summary})
+                        except Exception as exc:
+                            item = {"hallTicket": ticket, "error": str(exc)}
+                            failed.append(item)
+                            _class_job_push_event(key, {"type": "failed", "student": item})
+
+                        _save_partial_class_result(
+                            key, students, failed, prefix, start_roll, end_roll, roll_digits,
+                            current=index + 1, total=total, hall_ticket=ticket,
+                        )
+                finally:
+                    browser.close()
+
+        result = finalize_class_result(students, failed, prefix, start_roll, end_roll, roll_digits)
+        result["scrapeStatus"] = "complete"
+        if is_enabled():
+            save_class_result(key, result)
+        result["_meta"] = {"source": "scraped_and_cached" if is_enabled() else "scraped", "cached": False}
+        _class_job_push_event(key, {"type": "done", "result": result})
+
+        with _class_scrape_jobs_lock:
+            if key in _class_scrape_jobs:
+                _class_scrape_jobs[key]["status"] = "completed"
+                _class_scrape_jobs[key]["result"] = result
+                _class_scrape_jobs[key]["updatedAt"] = _utc_now_iso()
+        logger.info("Class scrape completed for %s (%s students)", key, len(students))
+    except Exception as exc:
+        logger.exception("Class scrape failed for %s: %s", key, exc)
+        _class_job_push_event(key, {"type": "error", "message": str(exc)})
+        with _class_scrape_jobs_lock:
+            if key in _class_scrape_jobs:
+                _class_scrape_jobs[key]["status"] = "failed"
+                _class_scrape_jobs[key]["error"] = str(exc)
+                _class_scrape_jobs[key]["updatedAt"] = _utc_now_iso()
+
+
+def start_class_scrape(
+    prefix: str,
+    start_roll: int,
+    end_roll: int,
+    roll_digits: int = 2,
+    delay_sec: float = 1.5,
+    *,
+    force_refresh: bool = False,
+) -> str:
+    """Start a class scrape in the background. Returns cache key. Safe to call repeatedly."""
+    prefix = prefix.strip().upper()
+    key = class_cache_key(prefix, start_roll, end_roll, roll_digits)
+
+    with _class_scrape_jobs_lock:
+        existing = _class_scrape_jobs.get(key)
+        if existing and existing.get("status") == "running":
+            return key
+
+    if not force_refresh and is_class_scrape_running(key):
+        return key
+
+    lock_name = f"class-scrape:{key}"
+    if not _with_refresh_lock(lock_name):
+        return key
+
+    with _class_scrape_jobs_lock:
+        _class_scrape_jobs[key] = {
+            "cacheKey": key,
+            "prefix": prefix,
+            "status": "running",
+            "events": [],
+            "result": None,
+            "error": None,
+            "startedAt": _utc_now_iso(),
+            "updatedAt": _utc_now_iso(),
+        }
+
+    def run() -> None:
+        try:
+            _execute_class_scrape(
+                key, prefix, start_roll, end_roll, roll_digits, delay_sec, force_refresh=force_refresh
+            )
+        finally:
+            _release_refresh_lock(lock_name)
+
+    threading.Thread(target=run, daemon=True, name=f"class-scrape-{key[:20]}").start()
+    return key
+
+
+def iter_class_scrape_events(key: str, *, from_index: int = 0, poll_sec: float = 0.4):
+    """Yield scrape SSE events until the job finishes. Survives client disconnect on the worker."""
+    index = from_index
+    missing = 0
+    while True:
+        with _class_scrape_jobs_lock:
+            job = _class_scrape_jobs.get(key)
+            if not job:
+                events: list[dict[str, Any]] = []
+                status = None
+            else:
+                events = job["events"][index:]
+                status = job.get("status")
+                index += len(events)
+
+        if not job:
+            missing += 1
+            if missing > 25:
+                break
+            time.sleep(poll_sec)
+            continue
+        missing = 0
+
+        for event in events:
+            yield event
+
+        if status in ("completed", "failed"):
+            break
+        time.sleep(poll_sec)
+
+
+def _meta(source: str, *, cached: bool, cached_at: str | None = None, updated: bool = False, response_ms: float | None = None, in_progress: bool = False) -> dict:
     meta: dict[str, Any] = {"source": source, "cached": cached}
     if cached_at:
         meta["cachedAt"] = cached_at
@@ -42,6 +320,8 @@ def _meta(source: str, *, cached: bool, cached_at: str | None = None, updated: b
         meta["updated"] = True
     if response_ms is not None:
         meta["responseMs"] = response_ms
+    if in_progress:
+        meta["inProgress"] = True
     return meta
 
 
@@ -385,11 +665,19 @@ def get_class_results(
         cached = get_cached_class(key)
         if cached:
             data = dict(cached["data"])
-            schedule_class_refresh(prefix, start_roll, end_roll, roll_digits, delay_sec)
+            in_progress = data.get("scrapeStatus") == "in_progress"
+            if not in_progress:
+                schedule_class_refresh(prefix, start_roll, end_roll, roll_digits, delay_sec)
             elapsed = round((time.perf_counter() - started) * 1000, 1)
             return _attach_meta(
                 data,
-                _meta("firebase", cached=True, cached_at=cached.get("updatedAt"), response_ms=elapsed),
+                _meta(
+                    "firebase",
+                    cached=True,
+                    cached_at=cached.get("updatedAt"),
+                    response_ms=elapsed,
+                    in_progress=in_progress,
+                ),
             )
 
         assembled = build_class_from_cache(prefix, start_roll, end_roll, roll_digits)
@@ -402,15 +690,43 @@ def get_class_results(
                 _meta("firebase", cached=True, response_ms=elapsed),
             )
 
-    scraped = fetch_class_results(prefix, start_roll, end_roll, roll_digits, delay_sec, summary_only=True)
-    if is_enabled():
-        for student in scraped.get("students") or []:
-            ticket = (student.get("hallTicket") or "").upper()
-            if ticket:
-                save_result(ticket, student)
-        save_class_result(key, scraped)
+    if is_class_scrape_running(key):
+        cached = get_cached_class(key) if is_enabled() else None
+        if cached:
+            data = dict(cached["data"])
+            elapsed = round((time.perf_counter() - started) * 1000, 1)
+            return _attach_meta(
+                data,
+                _meta(
+                    "firebase",
+                    cached=True,
+                    cached_at=cached.get("updatedAt"),
+                    response_ms=elapsed,
+                    in_progress=True,
+                ),
+            )
 
-    return _attach_meta(scraped, _meta("scraped_and_cached" if is_enabled() else "scraped", cached=False))
+    start_class_scrape(prefix, start_roll, end_roll, roll_digits, delay_sec, force_refresh=force_refresh)
+    if is_enabled():
+        cached = get_cached_class(key)
+        if cached:
+            data = dict(cached["data"])
+            elapsed = round((time.perf_counter() - started) * 1000, 1)
+            return _attach_meta(
+                data,
+                _meta(
+                    "firebase",
+                    cached=True,
+                    cached_at=cached.get("updatedAt"),
+                    response_ms=elapsed,
+                    in_progress=True,
+                ),
+            )
+
+    placeholder = finalize_class_result([], [], prefix, start_roll, end_roll, roll_digits)
+    placeholder["scrapeStatus"] = "in_progress"
+    placeholder["scrapeProgress"] = {"current": 0, "total": end_roll - start_roll + 1, "hallTicket": None}
+    return _attach_meta(placeholder, _meta("scraped", cached=False, in_progress=True))
 
 
 def resolve_class_student(ticket: str, *, force_refresh: bool = False) -> dict:
@@ -451,3 +767,224 @@ def build_class_from_cache(prefix: str, start_roll: int, end_roll: int, roll_dig
             return None
 
     return finalize_class_result(students, failed, prefix, start_roll, end_roll, roll_digits)
+
+
+def _schedule_attendance_refresh(hall_ticket: str, cached_data: dict) -> None:
+    ticket = hall_ticket.strip().upper()
+
+    def worker() -> None:
+        try:
+            fresh = fetch_student_attendance(ticket)
+            if "error" in fresh:
+                return
+            if data_differ(cached_data, fresh):
+                save_attendance(ticket, fresh)
+                logger.info("Updated Firebase attendance for %s", ticket)
+        except Exception as exc:
+            logger.exception("Background attendance refresh failed for %s: %s", ticket, exc)
+
+    _schedule_background(f"attendance:{ticket}", worker)
+
+
+def _resolve_student_attendance(ticket: str, *, force_refresh: bool = False) -> dict:
+    init_firebase()
+    if is_enabled() and ticket:
+        log_search(ticket)
+
+    if force_refresh or not is_enabled():
+        scraped = fetch_student_attendance(ticket)
+        if "error" in scraped:
+            return scraped
+        if is_enabled():
+            save_attendance(ticket, scraped)
+        source = "scraped" if not is_enabled() else "scraped_and_cached"
+        return _attach_meta(scraped, _meta(source, cached=False))
+
+    cached = get_cached_attendance(ticket)
+    if not cached:
+        scraped = fetch_student_attendance(ticket)
+        if "error" in scraped:
+            return scraped
+        save_attendance(ticket, scraped)
+        return _attach_meta(scraped, _meta("scraped_and_cached", cached=False))
+
+    data = dict(cached["data"])
+    sync_refresh = os.environ.get("FIREBASE_SYNC_REFRESH", "false").lower() == "true"
+
+    if sync_refresh:
+        scraped = fetch_student_attendance(ticket)
+        if "error" in scraped:
+            return _attach_meta(data, _meta("firebase", cached=True, cached_at=cached.get("updatedAt")))
+        if data_differ(data, scraped):
+            save_attendance(ticket, scraped)
+            return _attach_meta(scraped, _meta("scraped_and_updated", cached=False, updated=True))
+        return _attach_meta(data, _meta("firebase", cached=True, cached_at=cached.get("updatedAt")))
+
+    _schedule_attendance_refresh(ticket, data)
+    return _attach_meta(data, _meta("firebase", cached=True, cached_at=cached.get("updatedAt")))
+
+
+def get_student_attendance(hall_ticket: str, *, force_refresh: bool = False) -> dict:
+    """Overall attendance — instant Firebase read on cache hit."""
+    started = time.perf_counter()
+    result = _resolve_student_attendance(hall_ticket.strip().upper(), force_refresh=force_refresh)
+    if result.get("_meta", {}).get("cached"):
+        result["_meta"]["responseMs"] = round((time.perf_counter() - started) * 1000, 1)
+    return result
+
+
+def _schedule_overall_result_refresh(hall_ticket: str, cached_data: dict) -> None:
+    ticket = hall_ticket.strip().upper()
+
+    def worker() -> None:
+        try:
+            fresh = fetch_student_overall_result(ticket)
+            if "error" in fresh:
+                return
+            if data_differ(cached_data, fresh):
+                save_overall_result(ticket, fresh)
+                logger.info("Updated Firebase overall result for %s", ticket)
+        except Exception as exc:
+            logger.exception("Background overall result refresh failed for %s: %s", ticket, exc)
+
+    _schedule_background(f"overall-result:{ticket}", worker)
+
+
+def _resolve_student_overall_result(ticket: str, *, force_refresh: bool = False) -> dict:
+    init_firebase()
+    if is_enabled() and ticket:
+        log_search(ticket)
+
+    if force_refresh or not is_enabled():
+        scraped = fetch_student_overall_result(ticket)
+        if "error" in scraped:
+            return scraped
+        if is_enabled():
+            save_overall_result(ticket, scraped)
+        source = "scraped" if not is_enabled() else "scraped_and_cached"
+        return _attach_meta(scraped, _meta(source, cached=False))
+
+    cached = get_cached_overall_result(ticket)
+    if not cached:
+        scraped = fetch_student_overall_result(ticket)
+        if "error" in scraped:
+            return scraped
+        save_overall_result(ticket, scraped)
+        return _attach_meta(scraped, _meta("scraped_and_cached", cached=False))
+
+    data = dict(cached["data"])
+    sync_refresh = os.environ.get("FIREBASE_SYNC_REFRESH", "false").lower() == "true"
+
+    if sync_refresh:
+        scraped = fetch_student_overall_result(ticket)
+        if "error" in scraped:
+            return _attach_meta(data, _meta("firebase", cached=True, cached_at=cached.get("updatedAt")))
+        if data_differ(data, scraped):
+            save_overall_result(ticket, scraped)
+            return _attach_meta(scraped, _meta("scraped_and_updated", cached=False, updated=True))
+        return _attach_meta(data, _meta("firebase", cached=True, cached_at=cached.get("updatedAt")))
+
+    _schedule_overall_result_refresh(ticket, data)
+    return _attach_meta(data, _meta("firebase", cached=True, cached_at=cached.get("updatedAt")))
+
+
+def get_student_overall_result(hall_ticket: str, *, force_refresh: bool = False) -> dict:
+    """Semester-wise SGPA/CGPA overall result — instant Firebase read on cache hit."""
+    started = time.perf_counter()
+    result = _resolve_student_overall_result(hall_ticket.strip().upper(), force_refresh=force_refresh)
+    if result.get("_meta", {}).get("cached"):
+        result["_meta"]["responseMs"] = round((time.perf_counter() - started) * 1000, 1)
+    return result
+
+
+def _schedule_semwise_marks_refresh(hall_ticket: str, cached_data: dict) -> None:
+    ticket = hall_ticket.strip().upper()
+
+    def worker() -> None:
+        try:
+            fresh = fetch_student_semwise_marks(ticket)
+            if "error" in fresh:
+                return
+            if data_differ(cached_data, fresh):
+                save_semwise_marks(ticket, fresh)
+                logger.info("Updated Firebase semwise marks for %s", ticket)
+        except Exception as exc:
+            logger.exception("Background semwise marks refresh failed for %s: %s", ticket, exc)
+
+    _schedule_background(f"semwise-marks:{ticket}", worker)
+
+
+def _resolve_student_semwise_marks(ticket: str, *, force_refresh: bool = False) -> dict:
+    init_firebase()
+    if is_enabled() and ticket:
+        log_search(ticket)
+
+    if force_refresh or not is_enabled():
+        scraped = fetch_student_semwise_marks(ticket)
+        if "error" in scraped:
+            return scraped
+        if is_enabled():
+            save_semwise_marks(ticket, scraped)
+        source = "scraped" if not is_enabled() else "scraped_and_cached"
+        return _attach_meta(scraped, _meta(source, cached=False))
+
+    cached = get_cached_semwise_marks(ticket)
+    if not cached:
+        scraped = fetch_student_semwise_marks(ticket)
+        if "error" in scraped:
+            return scraped
+        save_semwise_marks(ticket, scraped)
+        return _attach_meta(scraped, _meta("scraped_and_cached", cached=False))
+
+    data = dict(cached["data"])
+    sync_refresh = os.environ.get("FIREBASE_SYNC_REFRESH", "false").lower() == "true"
+
+    if sync_refresh:
+        scraped = fetch_student_semwise_marks(ticket)
+        if "error" in scraped:
+            return _attach_meta(data, _meta("firebase", cached=True, cached_at=cached.get("updatedAt")))
+        if data_differ(data, scraped):
+            save_semwise_marks(ticket, scraped)
+            return _attach_meta(scraped, _meta("scraped_and_updated", cached=False, updated=True))
+        return _attach_meta(data, _meta("firebase", cached=True, cached_at=cached.get("updatedAt")))
+
+    _schedule_semwise_marks_refresh(ticket, data)
+    return _attach_meta(data, _meta("firebase", cached=True, cached_at=cached.get("updatedAt")))
+
+
+def get_student_semwise_marks(hall_ticket: str, *, force_refresh: bool = False) -> dict:
+    """Semester-wise marks — instant Firebase read on cache hit."""
+    started = time.perf_counter()
+    result = _resolve_student_semwise_marks(hall_ticket.strip().upper(), force_refresh=force_refresh)
+    if result.get("_meta", {}).get("cached"):
+        result["_meta"]["responseMs"] = round((time.perf_counter() - started) * 1000, 1)
+    return result
+
+
+def get_exam_hall_tickets(hall_ticket: str, *, force_refresh: bool = False) -> dict:
+    started = time.perf_counter()
+    ticket = hall_ticket.strip().upper()
+    init_firebase()
+    log_search(ticket)
+
+    if not force_refresh and is_enabled():
+        cached = get_cached_exam_hall_tickets(ticket)
+        if cached:
+            elapsed = round((time.perf_counter() - started) * 1000, 1)
+            return _attach_meta(
+                cached["data"],
+                _meta("firebase", cached=True, cached_at=cached.get("updatedAt"), response_ms=elapsed),
+            )
+
+    scraped = fetch_exam_hall_tickets(ticket)
+    elapsed = round((time.perf_counter() - started) * 1000, 1)
+
+    if "error" in scraped:
+        return _attach_meta(scraped, _meta("scraped", cached=False, response_ms=elapsed))
+
+    if is_enabled():
+        save_exam_hall_tickets(ticket, scraped)
+
+    source = "scraped_and_cached" if is_enabled() else "scraped"
+    return _attach_meta(scraped, _meta(source, cached=False, response_ms=elapsed))
+

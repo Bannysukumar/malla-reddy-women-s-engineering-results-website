@@ -1,0 +1,546 @@
+<!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml"><head><title>
+	Student Login
+</title><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="-1"><meta http-equiv="CACHE-CONTROL" content="NO-CACHE"><link href="Css/ERP.css" rel="stylesheet"><link href="CSS/form.css" rel="stylesheet" type="text/css">
+   
+     <!--Changes as on 19-12-2020-->
+  <link rel="stylesheet" href="Css/NewTheme/css/bootstrap.css"><link rel="stylesheet" href="Css/NewTheme/css/style.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"><link rel="stylesheet" href="Css/NewTheme/css/font-awesome.min.css">
+   <script src="../Css/jquery-1.8.0.min.js"></script>
+   <script src="../Css/NewTheme/js/popper.min.js"></script>
+   <script src="../Css/NewTheme/js/bootstrap.min.js"></script>
+   <script src="https://cdn.ckeditor.com/4.7.1/standard/ckeditor.js"></script><style>.cke{visibility:hidden;}</style>
+
+		<!-- Main css -->
+	<link rel="stylesheet" href="Css/Menus/css/bootstrap.min.css">
+		
+		<!-- Icomoon Font Icons css -->
+		<link rel="stylesheet" type="text/css" href="Css/Menus/fonts/style.css"><link href="Css/css/menunotifications.css" rel="stylesheet">
+		<!-- Main css -->
+		<link rel="stylesheet" href="Css/Menus/css/main.css"><link rel="stylesheet" href="Css/Menus/vendor/daterange/daterange.css">
+        <!--Changes-->
+    <link rel="shortcut icon" type="image/png" href="images/beeslogo.png" sizes="32x32">
+       <script type="text/javascript">
+
+           function isNumberKeywithDecimal(evt) {
+               var charCode = (evt.which) ? evt.which : event.keyCode;
+               if (charCode != 46 && charCode > 31
+               && (charCode < 48 || charCode > 57))
+                   return false;
+
+               return true;
+           }
+
+           function isNumberKey(evt) {
+               var charCode = (evt.which) ? evt.which : event.keyCode;
+               if ((charCode >= 48 && charCode <= 57) || charCode == 8)
+                   return true;
+
+               return false;
+           }
+
+           function AlphaNumeric(evt) {
+               var theEvent = evt || window.event;
+               var key = theEvent.keyCode || theEvent.which;
+               key = String.fromCharCode(key);
+               var regex = /^[0-9ANA\b]+$/;
+               if (!regex.test(key)) {
+                   theEvent.returnValue = false;
+                   if (theEvent.preventDefault) theEvent.preventDefault();
+               }
+           }
+
+
+           top.window.moveTo(0, 0);
+           if (document.all) {
+               top.window.resizeTo(screen.availWidth, screen.availHeight);
+           }
+           else if (document.layers || document.getElementById) {
+               if (top.window.outerHeight < screen.availHeight || top.window.outerWidth < screen.availWidth) {
+
+                   top.window.outerHeight = screen.availHeight;
+                   top.window.outerWidth = screen.availWidth;
+               }
+           }
+
+           function noBack() { window.history.forward(); }
+           noBack();
+           window.onload = noBack;
+           window.onpageshow = function (evt) { if (evt.persisted) noBack(); }
+           window.onunload = function () { void (0); }
+
+           function cancelBack() {
+               if ((event.keyCode == 8 ||
+                  (event.keyCode == 37 && event.altKey) ||
+                  (event.keyCode == 39 && event.altKey))
+                   &&
+                  (event.srcElement.form == null || event.srcElement.isTextEdit == false)
+                 ) {
+                   event.cancelBubble = true;
+                   event.returnValue = false;
+               }
+           }
+           function allownumbers(e) {
+               var key = window.event ? e.keyCode : e.which;
+               var keychar = String.fromCharCode(key);
+               var reg = new RegExp("[0-9]")
+               if (key == 8) {
+                   keychar = String.fromCharCode(key);
+               }
+               if (key == 46) {
+                   keychar = String.fromCharCode(key);
+               }
+               return reg.test(keychar);
+           }
+
+           function allowdate(e) {
+               var key = window.event ? e.keyCode : e.which;
+               var keychar = String.fromCharCode(key);
+               var reg = new RegExp("[0-9/]")
+               if (key == 8) {
+                   keychar = String.fromCharCode(key);
+               }
+               if (key == 46) {
+
+                   keychar = String.fromCharCode(key);
+               }
+               return reg.test(keychar);
+           }
+
+
+           function allownumbersdec(e) {
+               var key = window.event ? e.keyCode : e.which;
+               var keychar = String.fromCharCode(key);
+               var reg = new RegExp("[0-9.]")
+               if (key == 8) {
+                   keychar = String.fromCharCode(key);
+               }
+               if (key == 46) {
+                   keychar = String.fromCharCode(key);
+               }
+               return reg.test(keychar);
+           }
+
+           document.onkeydown = function inspectelement(e) {
+               if (event.keyCode == 123) {
+                   return false;
+               }
+               if (e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0)) {
+                   return false;
+               }
+               if (e.ctrlKey && e.shiftKey && e.keyCode == 'C'.charCodeAt(0)) {
+                   return false;
+               }
+               if (e.ctrlKey && e.shiftKey && e.keyCode == 'J'.charCodeAt(0)) {
+                   return false;
+               }
+               if (e.ctrlKey && e.keyCode == 'U'.charCodeAt(0)) {
+                   return false;
+               }
+           }
+
+
+
+           document.onmousedown = disableRightclick;
+           var message = "Sorry ! Right Click No Access.";
+           function disableRightclick(evt) {
+               if (evt.button == 2) {
+                   alert(message);
+                   return false;
+               }
+           }
+       </script>
+
+</head>
+
+    <body style="width:100%; margin-bottom:10px;margin:0px;padding :0px; ">
+         <div class="container-fluid no-gutters p-0 bg-transparent">
+        <form name="aspnetForm" method="post" action="StudentLogin/StudLoginDashboard.aspx" id="aspnetForm">
+<div>
+<input type="hidden" name="__EVENTTARGET" id="__EVENTTARGET" value="">
+<input type="hidden" name="__EVENTARGUMENT" id="__EVENTARGUMENT" value="">
+<input type="hidden" name="__VIEWSTATE" id="__VIEWSTATE" value="/wEPDwULLTIwNzM1ODM5MzIPZBYCZg9kFgICAw9kFgICAw9kFgJmD2QWAmYPZBYCZg9kFgICAQ9kFg4CAw8PFg4eBFRleHQFKU1BTExBIFJFRERZIEVOR0lORUVSSU5HIENPTExFR0UgRk9SIFdPTUVOHglGb3JlQ29sb3IJ/////x4JRm9udF9Cb2xkZx4JRm9udF9TaXplKCoiU3lzdGVtLldlYi5VSS5XZWJDb250cm9scy5Gb250VW5pdAQxNnB0HgpGb250X05hbWVzFQEFQXJpYWweBF8hU0IChBweB1Zpc2libGVnZGQCBQ8PFgIfAAUYV0VMQ09NRSAgICAgICAyM1JIMUEwNTExZGQCBw8PFgIfAGRkZAILDw8WAh8ABRYyMDI2LTA2LTE0IDEwOjQ5OjExIFBNZGQCDQ8PFgIfAAUiWW91ciBsYXN0IGxvZ2luIHRvZGF5QCAxMDo0ODozNyBQTWRkAg8PDxYCHghJbWFnZVVybAVGflxFUlBcQWRtaW5cU3R1ZGVudFBob3Rvcy5hc3B4P1N0dWRJZD0xMDYyMyZDb2xDb2RlPTAwMDEmR3JwQ29kZT1NUkVDV2RkAhEPZBYCAgEPDxYCHwZnZGQYAQUeX19Db250cm9sc1JlcXVpcmVQb3N0QmFja0tleV9fFgEFF2N0bDAwJGNwU3R1ZCRJbWdTdHVkUGljXCq7XL5ShKawauk1hlT0JpZAAWo1L4jcpOCdWskMx/8=">
+</div>
+
+<script type="text/javascript">
+//<![CDATA[
+var theForm = document.forms['aspnetForm'];
+if (!theForm) {
+    theForm = document.aspnetForm;
+}
+function __doPostBack(eventTarget, eventArgument) {
+    if (!theForm.onsubmit || (theForm.onsubmit() != false)) {
+        theForm.__EVENTTARGET.value = eventTarget;
+        theForm.__EVENTARGUMENT.value = eventArgument;
+        theForm.submit();
+    }
+}
+//]]>
+</script>
+
+
+<div>
+
+	<input type="hidden" name="__VIEWSTATEGENERATOR" id="__VIEWSTATEGENERATOR" value="E125CDD9">
+	<input type="hidden" name="__EVENTVALIDATION" id="__EVENTVALIDATION" value="/wEdAATwAZk6FXJ49mpy4TvMsMIppFGzXEBAUVV6gVXCqtImtKrNbjwQpLjzwB1jvpMjwCrNEvLzJGtsuek5QrhMUzVp2Qf1lqpkdBDLsXboMO3buFaWwULpkn52Nm8L7d/jisk=">
+</div>
+            <table style="vertical-align:top;height:0px;width:100%;">
+                
+                <tbody><tr>
+                    <td>
+                        
+                           
+                    </td>
+                </tr>                          
+            </tbody></table>
+       <table style="vertical-align:top; width:100%;margin:0px;">
+                <tbody><tr>               
+                    <td style="vertical-align:top;">      
+                        <div class="ChildFormDiv">
+                        <table id="ctl00_tblMenuForms" border="0" style="height:75px;width:100%;">
+	<tbody><tr>
+		<td id="ctl00_cellFRM" class="ChildFormStyle"><div>
+			
+                                        <table style="vertical-align:top; width:100%;">
+                                            
+                                            <tbody><tr>
+                                                <td>
+                                                     
+    
+
+    <link rel="stylesheet" href="Css/css/bootstrap.min.css">
+    <link href="../Css/css/menunotifications.css" rel="stylesheet">
+    <!--Font Awesome icon-->
+    <script src="https://kit.fontawesome.com/9c940d259e.js" crossorigin="anonymous"></script>
+    <style type="text/css">
+        /*a.specialLinkButton
+        {
+         color:black;
+         text-decoration:none;
+         font-weight: normal;
+         font-family:arial;
+         font-size: 10px;*/
+        /*width: 170px;*/
+        /*}
+        a.specialLinkButton:hover 
+        {
+         color:black;
+         text-decoration:none;
+         font-weight: bold;
+         background-color :#f87213;
+          font-weight: normal;
+         font-family:arial;
+         font-size: 10px;
+         display :block;*/
+        /*padding-left:5px;
+         padding-right:5px;
+         padding-bottom:5px;
+         padding-top:5px;*/
+
+        /*width: 170px;*/
+        /*}*/
+        body, html {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        .dropbtn {
+            color: white;
+            padding: 16px;
+            font-size: 31px;
+            border: none;
+            background: none;
+        }
+
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            background-color: #ffffff;
+            min-width: 205px;
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+            z-index: 1;
+            height: 250px;
+            left: -170px;
+            top: 60px;
+            padding: 30px 23px;
+            line-height: 25px;
+            text-align: justify;
+        }
+
+            .dropdown-content a {
+                color: blue;
+                padding: 12px 16px;
+                text-decoration: none;
+                display: block;
+            }
+
+
+
+        .dropdown:hover .dropdown-content {
+            display: block;
+        }
+
+        .check_boxes {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .upload_student {
+            border: 1px solid;
+            padding: 20px;
+            margin-top: 40px;
+            background: #fbfdff;
+        }
+
+        .import_student {
+            background: #fffcfd;
+            padding: 20px;
+            border: 1px solid;
+        }
+
+        .indication {
+            color: red;
+            font-weight: 600;
+        }
+
+        @media screen and (min-width: 300px) {
+            .collegename {
+                font-size: 12px;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+            }
+        }
+
+        @media screen and (min-width: 768px) {
+            .collegename {
+                font-size: 14px;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+            }
+        }
+
+        @media screen and (min-width: 1024px) {
+            .collegename {
+                font-size: 16px;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+            }
+        }
+
+        @media screen and (min-width: 1440px) {
+            .collegename {
+                font-size: 16px;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+            }
+        }
+
+        .studentname {
+            text-decoration: none;
+            background-color: #ffffff;
+            color: #000000;
+            padding: 2px 6px 2px 6px;
+            text-align: center;
+            margin: auto;
+            border-radius: 5px;
+            font-size: 9px;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            align-items: center;
+        }
+
+        @media screen and (min-width: 768px) {
+            .studentname {
+                text-decoration: none;
+                background-color: #ffffff;
+                color: #000000;
+                padding: 2px 6px 2px 6px;
+                text-align: center;
+                margin: auto;
+                border-radius: 5px;
+                font-size: 6px;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+            }
+        }
+
+        @media screen and (min-width: 1024px) {
+            .studentname {
+                text-decoration: none;
+                background-color: #ffffff;
+                color: #000000;
+                padding: 2px 6px 2px 6px;
+                text-align: center;
+                margin: auto;
+                border-radius: 5px;
+                font-size: 8px;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+            }
+        }
+
+        @media screen and (min-width: 1440px) {
+            .studentname {
+                text-decoration: none;
+                background-color: #ffffff;
+                color: #000000;
+                padding: 2px 6px 2px 6px;
+                text-align: center;
+                margin: auto;
+                border-radius: 5px;
+                font-size: 12px;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+            }
+        }
+
+        @media screen and (max-width:1024px) {
+            .info {
+                margin-right: 0;
+                top: 0;
+                font-size: 10px;
+            }
+        }
+
+        .btnback {
+            border: none;
+            box-shadow: none;
+            /*background-color:#fc791e;*/
+            /*background-image: -webkit-gradient(linear, 50% 0%, 50% 100%, color-stop(0, rgb(255,147,38)), color-stop(1, rgb(217,109,0)));*/
+            color: white;
+            /*font-weight:bolder;*/
+            height: 40px;
+            /*width:170px;*/
+            background-color: transparent;
+            border-color: transparent;
+            box-shadow: none;
+        }
+
+        .alert-primary {
+            background-color: #292d53;
+            color: #ffffff;
+        }
+
+        .header {
+            width: 65%;
+            align-items: center;
+            height: auto;
+        }
+    </style>
+    <nav class="navbar navbar-expand-sm  navbar-light" style="background-color: #036;">
+                <a class="navbar-brand" href="#">
+                    <img id="ctl00_cpStud_Image3" class="user-avatar-md rounded-circle" src="Images/logo.jpg" style="border-width:0px;">
+                    
+                    <span id="ctl00_cpStud_lblCollegeName" class="collegename" style="color:#FFFFFF;font-family:Arial;font-size:16pt;font-weight:bold;text-transform: initial; text-shadow: 2px 2px 4px #000000;">MALLA REDDY ENGINEERING COLLEGE FOR WOMEN</span>
+
+                </a>
+                <button class="navbar-toggler navbar-toggler-right" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse " id="navbarSupportedContent" style="align-items: center">
+                    <ul class="navbar-nav ml-auto navbar-right-top">
+
+                        <li>
+
+                            <span id="ctl00_cpStud_lblStudentName" class="studentname mb-5" style="font-weight:bold;">WELCOME       23RH1A0511</span>
+                            <div class="dropdown">
+                                
+
+                                <button class="dropbtn info"><i class="fas fa-info-circle"></i></button>
+                                <div class="dropdown-content">
+                                    <span>
+                                        <span id="ctl00_cpStud_lblStudentStatus" style="font-weight:bold;"></span></span><br>
+                                    <span>
+                                        <img id="ctl00_cpStud_imgNowDate" src="images/time.png" style="height:20px;width:20px;border-width:0px;">
+                                    </span>
+                                    <span>
+                                        <span id="ctl00_cpStud_lblNowDate">2026-06-14 10:49:11 PM</span></span><br>
+                                    <span>
+                                        <span id="ctl00_cpStud_lbllogin">Your last login today@ 10:48:37 PM</span></span>
+
+
+                                    
+                                </div>
+                            </div>
+                        </li>
+
+                        <!--User Info-->
+
+
+                        <!--user ifo new-->
+
+                        <li>
+                            <div class="dropdown">
+
+                                <button class="dropbtn">
+                                    <input type="image" name="ctl00$cpStud$ImgStudPic" id="ctl00_cpStud_ImgStudPic" class="user-avatar-md rounded-circle" src="ERP/Admin/StudentPhotos.aspx?StudId=10623&amp;ColCode=0001&amp;GrpCode=MRECW" style="border-width:0px;">
+                                    
+                                </button>
+
+                            <div class="dropdown-content">
+                              
+                                        
+                                 
+                                    <a class="dropdown-item" href="/Login.aspx">
+                                        <i class="fas fa-power-off mr-2"></i>Logout
+                                    </a>
+                                </div>
+                            </div>
+                        </li>
+                        <!--end user-->
+
+                        <!--user end-->
+                    </ul>
+
+                </div>
+
+            </nav>
+    <div class="container-fluid mt-4">
+       
+ <div class="col-md-4">
+<fieldset class="border p-2">
+<legend class="fieldsetlegend alert-success">CLICK HERE</legend>
+    <div id="ctl00_cpStud_PanelDashboard" style="text-align:left;">
+				
+           <table>
+              <tbody><tr>
+                <td>
+                    <a id="ctl00_cpStud_lnkOverallMarksSemwiseMarks" class="lnkunderline" href="javascript:__doPostBack('ctl00$cpStud$lnkOverallMarksSemwiseMarks','')" style="color:Green;font-family:arial;font-size:14px;font-weight:bold;">Click Here to go Overall Marks Result</a>
+                </td>
+            </tr>
+                 </tbody></table>
+         <table>
+              <tbody><tr>
+                <td>
+                    <a id="ctl00_cpStud_lnkStudentMain" class="lnkunderline" href="javascript:__doPostBack('ctl00$cpStud$lnkStudentMain','')" style="color:Blue;font-family:arial;font-size:14px;">Click Here to go Student Dashbord</a>
+                </td>
+            </tr>
+          </tbody></table>
+           
+			</div>   
+    </fieldset>
+</div>
+</div>
+
+    
+                                                </td>
+                                            </tr>
+                                        </tbody></table>
+                                    
+		</div></td>
+	</tr>
+</tbody></table>                    
+                    </div>                   
+                </td>                
+            </tr> 
+           
+        </tbody></table> 
+   </form>
+             </div>
+
+
+</body></html>

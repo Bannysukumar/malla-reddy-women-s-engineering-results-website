@@ -21,6 +21,18 @@ service cloud.firestore {
     match /mrecw_credits_contrast/{docId} {
       allow read, write: if false;
     }
+    match /mrecw_exam_hall_tickets/{docId} {
+      allow read, write: if false;
+    }
+    match /mrecw_attendance/{docId} {
+      allow read, write: if false;
+    }
+    match /mrecw_overall_results/{docId} {
+      allow read, write: if false;
+    }
+    match /mrecw_semwise_marks/{docId} {
+      allow read, write: if false;
+    }
 
     // Analytics & search tracking
     match /mrecw_analytics/{docId} {

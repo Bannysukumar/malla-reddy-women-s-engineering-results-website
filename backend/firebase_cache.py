@@ -16,6 +16,10 @@ COLLECTION_CLASS = "mrecw_class_results"
 COLLECTION_BACKLOG = "mrecw_backlog_reports"
 COLLECTION_CONTRAST = "mrecw_result_contrast"
 COLLECTION_CREDITS_CONTRAST = "mrecw_credits_contrast"
+COLLECTION_EXAM_HALL_TICKETS = "mrecw_exam_hall_tickets"
+COLLECTION_ATTENDANCE = "mrecw_attendance"
+COLLECTION_OVERALL_RESULTS = "mrecw_overall_results"
+COLLECTION_SEMWISE_MARKS = "mrecw_semwise_marks"
 COLLECTION_ANALYTICS = "mrecw_analytics"
 COLLECTION_SEARCH_INDEX = "mrecw_search_index"
 COLLECTION_FEEDBACK = "mrecw_feedback"
@@ -215,6 +219,38 @@ def save_credits_contrast(key: str, data: dict) -> bool:
     return save_document(COLLECTION_CREDITS_CONTRAST, key, data, key_field="contrastKey")
 
 
+def get_cached_exam_hall_tickets(hall_ticket: str) -> dict[str, Any] | None:
+    return get_document(COLLECTION_EXAM_HALL_TICKETS, hall_ticket)
+
+
+def save_exam_hall_tickets(hall_ticket: str, data: dict) -> bool:
+    return save_document(COLLECTION_EXAM_HALL_TICKETS, hall_ticket.strip().upper(), data, key_field="hallTicket")
+
+
+def get_cached_attendance(hall_ticket: str) -> dict[str, Any] | None:
+    return get_document(COLLECTION_ATTENDANCE, hall_ticket)
+
+
+def save_attendance(hall_ticket: str, data: dict) -> bool:
+    return save_document(COLLECTION_ATTENDANCE, hall_ticket.strip().upper(), data, key_field="hallTicket")
+
+
+def get_cached_overall_result(hall_ticket: str) -> dict[str, Any] | None:
+    return get_document(COLLECTION_OVERALL_RESULTS, hall_ticket)
+
+
+def save_overall_result(hall_ticket: str, data: dict) -> bool:
+    return save_document(COLLECTION_OVERALL_RESULTS, hall_ticket.strip().upper(), data, key_field="hallTicket")
+
+
+def get_cached_semwise_marks(hall_ticket: str) -> dict[str, Any] | None:
+    return get_document(COLLECTION_SEMWISE_MARKS, hall_ticket)
+
+
+def save_semwise_marks(hall_ticket: str, data: dict) -> bool:
+    return save_document(COLLECTION_SEMWISE_MARKS, hall_ticket.strip().upper(), data, key_field="hallTicket")
+
+
 def class_cache_key(prefix: str, start_roll: int, end_roll: int, roll_digits: int) -> str:
     return f"{prefix.strip().upper()}_{start_roll}_{end_roll}_{roll_digits}"
 
@@ -301,6 +337,34 @@ def list_all_stored_tickets() -> list[str]:
         return []
 
 
+def list_all_class_sections() -> list[dict[str, Any]]:
+    if not _enabled or _db is None:
+        return []
+
+    sections: list[dict[str, Any]] = []
+    try:
+        for doc in _db.collection(COLLECTION_CLASS).stream():
+            raw = doc.to_dict() or {}
+            payload = raw.get("data") if isinstance(raw.get("data"), dict) else raw
+            if not isinstance(payload, dict):
+                continue
+            if payload.get("scrapeStatus") == "in_progress":
+                continue
+            prefix = payload.get("prefix")
+            if not prefix:
+                continue
+            sections.append({
+                "key": doc.id,
+                "prefix": str(prefix).upper(),
+                "startRoll": int(payload.get("startRoll") or 1),
+                "endRoll": int(payload.get("endRoll") or 60),
+                "rollDigits": int(payload.get("rollDigits") or 2),
+            })
+    except Exception as exc:
+        logger.exception("Failed to list class sections: %s", exc)
+    return sections
+
+
 def get_admin_stats() -> dict:
     if not _enabled or _db is None:
         return {
@@ -312,6 +376,10 @@ def get_admin_stats() -> dict:
             "storedClassResults": 0,
             "storedResultCompares": 0,
             "storedCreditsCompares": 0,
+            "storedExamHallTickets": 0,
+            "storedAttendance": 0,
+            "storedOverallResults": 0,
+            "storedSemwiseMarks": 0,
         }
 
     analytics = {}
@@ -331,6 +399,10 @@ def get_admin_stats() -> dict:
         "storedClassResults": count_collection(COLLECTION_CLASS),
         "storedResultCompares": count_collection(COLLECTION_CONTRAST),
         "storedCreditsCompares": count_collection(COLLECTION_CREDITS_CONTRAST),
+        "storedExamHallTickets": count_collection(COLLECTION_EXAM_HALL_TICKETS),
+        "storedAttendance": count_collection(COLLECTION_ATTENDANCE),
+        "storedOverallResults": count_collection(COLLECTION_OVERALL_RESULTS),
+        "storedSemwiseMarks": count_collection(COLLECTION_SEMWISE_MARKS),
         "lastAnalyticsUpdate": analytics.get("updatedAt"),
     }
 

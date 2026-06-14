@@ -2,8 +2,12 @@ import type {
   BacklogReport,
   ClassResult,
   CreditsCompare,
+  ExamHallTickets,
   ResultContrast,
+  StudentAttendance,
+  StudentOverallResult,
   StudentResult,
+  StudentSemwiseMarks,
 } from "@/shared/types/results";
 import type { FooterSettings } from "@/shared/types/settings";
 
@@ -34,6 +38,42 @@ export async function fetchBacklogReport(hallTicket: string): Promise<BacklogRep
     body: JSON.stringify({ hallTicket }),
   });
   return parseJson<BacklogReport>(res);
+}
+
+export async function fetchExamHallTickets(hallTicket: string): Promise<ExamHallTickets> {
+  const res = await fetch(apiUrl("/api/exam-hall-tickets"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ hallTicket }),
+  });
+  return parseJson<ExamHallTickets>(res);
+}
+
+export async function fetchAttendance(hallTicket: string): Promise<StudentAttendance> {
+  const res = await fetch(apiUrl("/api/attendance"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ hallTicket }),
+  });
+  return parseJson<StudentAttendance>(res);
+}
+
+export async function fetchOverallResult(hallTicket: string): Promise<StudentOverallResult> {
+  const res = await fetch(apiUrl("/api/overall-result"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ hallTicket }),
+  });
+  return parseJson<StudentOverallResult>(res);
+}
+
+export async function fetchSemwiseMarks(hallTicket: string): Promise<StudentSemwiseMarks> {
+  const res = await fetch(apiUrl("/api/semwise-marks"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ hallTicket }),
+  });
+  return parseJson<StudentSemwiseMarks>(res);
 }
 
 export async function fetchResultContrast(hallTicketA: string, hallTicketB: string): Promise<ResultContrast> {
@@ -134,6 +174,10 @@ export function exportClassCsv(data: ClassResult) {
 export const queryKeys = {
   results: (ticket: string) => ["results", ticket] as const,
   backlog: (ticket: string) => ["backlog", ticket] as const,
+  examHallTickets: (ticket: string) => ["exam-hall-tickets", ticket] as const,
+  attendance: (ticket: string) => ["attendance", ticket] as const,
+  overallResult: (ticket: string) => ["overall-result", ticket] as const,
+  semwiseMarks: (ticket: string) => ["semwise-marks", ticket] as const,
   contrast: (a: string, b: string) => ["contrast", a, b] as const,
   creditsCompare: (a: string, b: string) => ["credits-compare", a, b] as const,
   footer: () => ["footer-settings"] as const,

