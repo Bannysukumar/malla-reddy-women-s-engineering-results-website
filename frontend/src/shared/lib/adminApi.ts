@@ -168,11 +168,11 @@ export async function fetchAdminFooter(): Promise<FooterSettings> {
   return data as FooterSettings;
 }
 
-export async function saveAdminFooter(sections: FooterSettings["sections"]) {
+export async function saveAdminFooter(settings: FooterSettings) {
   const res = await fetch(apiUrl("/api/admin/settings/footer"), {
     method: "PUT",
     headers: adminHeaders(),
-    body: JSON.stringify({ sections }),
+    body: JSON.stringify(settings),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "Failed to save footer");

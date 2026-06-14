@@ -22,6 +22,8 @@ from firebase_cache import (
 )
 
 DEFAULT_FOOTER = {
+    "brandTitle": "MRECW Results Portal",
+    "brandDescription": "Malla Reddy Engineering College for Women (Autonomous), Hyderabad — fast academic insights for students.",
     "sections": [
         {
             "id": "quick-links",
@@ -41,6 +43,14 @@ DEFAULT_FOOTER = {
             ],
         },
     ],
+    "contact": {
+        "title": "Contact",
+        "address": "Hyderabad, Telangana, India",
+        "email": "",
+        "phone": "",
+        "website": "https://mrecwexamcell.vercel.app",
+    },
+    "socialLinks": [],
 }
 
 
@@ -229,22 +239,33 @@ def update_feedback_status(feedback_id: str, status: str) -> dict[str, Any]:
     }
 
 
-def get_footer_settings() -> dict[str, Any]:
-    init_firebase()
-    if not is_enabled():
-        return DEFAULT_FOOTER
+def _merge_footer_defaults(doc: dict[str, Any] | None) -> dict[str, Any]:
+    merged = {
+        "brandTitle": DEFAULT_FOOTER["brandTitle"],
+        "brandDescription": DEFAULT_FOOTER["brandDescription"],
+        "sections": DEFAULT_FOOTER["sections"],
+        "contact": dict(DEFAULT_FOOTER["contact"]),
+        "socialLinks": list(DEFAULT_FOOTER["socialLinks"]),
+    }
+    if not doc:
+        return merged
 
-    doc = get_raw_document(COLLECTION_SETTINGS, SETTINGS_FOOTER_DOC)
-    if not doc or not doc.get("sections"):
-        return DEFAULT_FOOTER
-    return {"sections": doc.get("sections")}
+    if doc.get("brandTitle"):
+        merged["brandTitle"] = doc["brandTitle"]
+    if doc.get("brandDescription"):
+        merged["brandDescription"] = doc["brandDescription"]
+    if doc.get("sections"):
+        merged["sections"] = doc["sections"]
+    if doc.get("contact"):
+        merged["contact"] = {**merged["contact"], **doc["contact"]}
+    if doc.get("socialLinks") is not None:
+        merged["socialLinks"] = doc["socialLinks"]
+    if doc.get("updatedAt"):
+        merged["updatedAt"] = doc["updatedAt"]
+    return merged
 
 
-def save_footer_settings(sections: list[dict[str, Any]]) -> dict[str, Any]:
-    init_firebase()
-    if not is_enabled():
-        raise ValueError("Firebase is not configured")
-
+def _clean_sections(sections: list[dict[str, Any]]) -> list[dict[str, Any]]:
     cleaned = []
     for section in sections:
         title = (section.get("title") or "").strip()
@@ -267,8 +288,60 @@ def save_footer_settings(sections: list[dict[str, Any]]) -> dict[str, Any]:
             "title": title,
             "links": links,
         })
+    return cleaned
+
+
+def _clean_contact(contact: dict[str, Any]) -> dict[str, str]:
+    return {
+        "title": (contact.get("title") or "Contact").strip() or "Contact",
+        "address": (contact.get("address") or "").strip(),
+        "email": (contact.get("email") or "").strip(),
+        "phone": (contact.get("phone") or "").strip(),
+        "website": (contact.get("website") or "").strip(),
+    }
+
+
+def _clean_social_links(links: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    cleaned = []
+    for link in links:
+        label = (link.get("label") or "").strip()
+        href = (link.get("href") or "").strip()
+        if not label or not href:
+            continue
+        cleaned.append({
+            "id": link.get("id") or str(uuid.uuid4()),
+            "label": label,
+            "href": href,
+        })
+    return cleaned
+
+
+def get_footer_settings() -> dict[str, Any]:
+    init_firebase()
+    if not is_enabled():
+        return _merge_footer_defaults(None)
+
+    doc = get_raw_document(COLLECTION_SETTINGS, SETTINGS_FOOTER_DOC)
+    return _merge_footer_defaults(doc)
+
+
+def save_footer_settings(payload: dict[str, Any]) -> dict[str, Any]:
+    init_firebase()
+    if not is_enabled():
+        raise ValueError("Firebase is not configured")
+
+    sections = payload.get("sections")
+    if not isinstance(sections, list):
+        raise ValueError("sections must be an array")
 
     now = _utc_now_iso()
-    payload = {"sections": cleaned, "updatedAt": now}
-    set_raw_document(COLLECTION_SETTINGS, SETTINGS_FOOTER_DOC, payload, merge=True)
-    return payload
+    result = {
+        "brandTitle": (payload.get("brandTitle") or DEFAULT_FOOTER["brandTitle"]).strip(),
+        "brandDescription": (payload.get("brandDescription") or DEFAULT_FOOTER["brandDescription"]).strip(),
+        "sections": _clean_sections(sections),
+        "contact": _clean_contact(payload.get("contact") or {}),
+        "socialLinks": _clean_social_links(payload.get("socialLinks") or []),
+        "updatedAt": now,
+    }
+    set_raw_document(COLLECTION_SETTINGS, SETTINGS_FOOTER_DOC, result, merge=True)
+    return result

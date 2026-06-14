@@ -7,7 +7,7 @@ const NAV = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/admin/feedback", label: "Feedback", icon: MessageSquare },
   { to: "/admin/users", label: "Users", icon: Users },
-  { to: "/admin/footer", label: "Footer Links", icon: Link2 },
+        { to: "/admin/footer", label: "Footer", icon: Link2 },
 ];
 
 export function AdminLayout() {

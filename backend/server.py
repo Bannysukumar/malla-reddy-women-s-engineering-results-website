@@ -522,7 +522,7 @@ def admin_footer_save():
     if not isinstance(sections, list):
         return jsonify({"error": "sections must be an array"}), 400
     try:
-        return jsonify(save_footer_settings(sections))
+        return jsonify(save_footer_settings(body))
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     except Exception as exc:
