@@ -426,10 +426,22 @@ Add these in **Vercel → Environment Variables** (from Firebase Console → Pro
 | `VITE_FIREBASE_MESSAGING_SENDER_ID` | `476309209964` |
 | `VITE_FIREBASE_APP_ID` | `1:476309209964:web:185ac0a1d2663189726949` |
 | `VITE_FIREBASE_MEASUREMENT_ID` | `G-MMGG20Z3E8` |
+| `VITE_GTAG_ID` | `GT-MJP8TXD7` |
+| `VITE_GA_MEASUREMENT_ID` | `G-MMGG20Z3E8` |
+| `VITE_GA_TAG_NAME` | `malla reddy results website` |
+
+**Google Tag / Analytics**
+
+| Item | Value |
+|------|-------|
+| Tag name | malla reddy results website |
+| Google Tag ID | `GT-MJP8TXD7` |
+| GA4 Measurement ID | `G-MMGG20Z3E8` |
+| Destination | Google Analytics |
 
 For local dev: copy `frontend/.env.example` to `frontend/.env` and fill in your API key.
 
-> **Note:** The client Firebase config powers **Analytics** on the frontend. Result caching uses the **backend service account** — students never read Firestore directly from the browser.
+> **Note:** Google Tag (`GT-MJP8TXD7`) loads on the frontend and sends page views to GA4 (`G-MMGG20Z3E8`). Result caching uses the **backend service account** — students never read Firestore directly from the browser.
 
 ---
 

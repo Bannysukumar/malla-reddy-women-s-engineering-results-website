@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useEffect, type ReactNode } from "react";
-import { initFirebaseAnalytics } from "@/shared/lib/firebase";
+import type { ReactNode } from "react";
+import { GoogleAnalyticsProvider } from "@/app/GoogleAnalyticsProvider";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -12,11 +12,9 @@ const queryClient = new QueryClient({
 });
 
 export function AppProviders({ children }: { children: ReactNode }) {
-  useEffect(() => {
-    initFirebaseAnalytics().catch(() => {
-      // Analytics optional — ignore init failures (SSR, ad blockers, missing env)
-    });
-  }, []);
-
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  return (
+    <QueryClientProvider client={queryClient}>
+      <GoogleAnalyticsProvider>{children}</GoogleAnalyticsProvider>
+    </QueryClientProvider>
+  );
 }
