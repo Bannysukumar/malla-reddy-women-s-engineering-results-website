@@ -18,6 +18,7 @@ from results_service import (
     schedule_class_refresh,
     start_class_scrape,
     iter_class_scrape_events,
+    _ensure_class_scrape_running,
 )
 from firebase_cache import init_firebase, is_enabled, class_cache_key, get_cached_class, save_class_result
 from admin_auth import authenticate_admin, decode_admin_token, require_admin, verify_admin_token
@@ -372,7 +373,9 @@ def _stream_class_results(prefix, start_roll, end_roll, roll_digits, delay_sec, 
         if cached_class:
             data = filter_class_result_to_range(dict(cached_class["data"]), prefix, start_roll, end_roll, roll_digits)
             if data.get("scrapeStatus") == "in_progress":
-                start_class_scrape(prefix, start_roll, end_roll, roll_digits, delay_sec, force_refresh=force_refresh)
+                _ensure_class_scrape_running(
+                    cache_key, prefix, start_roll, end_roll, roll_digits, delay_sec, force_refresh=force_refresh
+                )
                 for event in iter_class_scrape_events(cache_key):
                     yield emit(event)
                 return
@@ -415,7 +418,9 @@ def _stream_class_results(prefix, start_roll, end_roll, roll_digits, delay_sec, 
                 "remaining": partial["missingCount"],
             })
 
-    start_class_scrape(prefix, start_roll, end_roll, roll_digits, delay_sec, force_refresh=force_refresh)
+    _ensure_class_scrape_running(
+        cache_key, prefix, start_roll, end_roll, roll_digits, delay_sec, force_refresh=force_refresh
+    )
 
     for event in iter_class_scrape_events(cache_key):
         yield emit(event)

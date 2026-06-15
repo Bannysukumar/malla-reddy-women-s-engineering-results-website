@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import logging
-import multiprocessing as mp
 import os
 import threading
 import time
+from datetime import datetime, timezone
 from typing import Any, Callable
 
 from firebase_cache import (
@@ -57,12 +57,63 @@ _refresh_in_progress: set[str] = set()
 _refresh_guard = threading.Lock()
 _class_scrape_jobs: dict[str, dict[str, Any]] = {}
 _class_scrape_jobs_lock = threading.Lock()
-_playwright_pool_ctx = mp.get_context("spawn")
+_CLASS_SCRAPE_STALE_SEC = int(os.getenv("CLASS_SCRAPE_STALE_SEC", "180"))
 
 
 def _utc_now_iso() -> str:
-    from datetime import datetime, timezone
     return datetime.now(timezone.utc).isoformat()
+
+
+def _iso_age_seconds(iso_value: str | None) -> float | None:
+    if not iso_value:
+        return None
+    try:
+        normalized = iso_value.replace("Z", "+00:00")
+        then = datetime.fromisoformat(normalized)
+        if then.tzinfo is None:
+            then = then.replace(tzinfo=timezone.utc)
+        return max(0.0, (datetime.now(timezone.utc) - then).total_seconds())
+    except ValueError:
+        return None
+
+
+def _cleanup_stale_class_job(key: str) -> None:
+    with _class_scrape_jobs_lock:
+        job = _class_scrape_jobs.get(key)
+        if not job or job.get("status") != "running":
+            return
+        age = _iso_age_seconds(job.get("startedAt") or job.get("updatedAt"))
+        if age is not None and age > _CLASS_SCRAPE_STALE_SEC:
+            job["status"] = "failed"
+            job["error"] = "Scrape timed out — restarted"
+            job["updatedAt"] = _utc_now_iso()
+            logger.warning("Marked stale in-memory class scrape as failed for %s", key)
+
+
+def _acquire_class_scrape_lock(lock_name: str) -> bool:
+    if _with_refresh_lock(lock_name):
+        return True
+    _release_refresh_lock(lock_name)
+    return _with_refresh_lock(lock_name)
+
+
+def _ensure_class_scrape_running(
+    key: str,
+    prefix: str,
+    start_roll: int,
+    end_roll: int,
+    roll_digits: int,
+    delay_sec: float,
+    *,
+    force_refresh: bool = False,
+) -> None:
+    _cleanup_stale_class_job(key)
+    if is_class_scrape_running(key):
+        return
+    started = start_class_scrape(
+        prefix, start_roll, end_roll, roll_digits, delay_sec, force_refresh=force_refresh
+    )
+    logger.info("Ensured class scrape running for %s (key=%s)", prefix, started)
 
 
 def _class_job_push_event(key: str, event: dict[str, Any]) -> None:
@@ -215,11 +266,39 @@ def _class_progress_from_result(result: dict[str, Any]) -> dict[str, Any]:
 
 
 def _class_scrape_workers() -> int:
-    raw = os.getenv("CLASS_SCRAPE_WORKERS", "20")
+    raw = os.getenv("CLASS_SCRAPE_WORKERS", "1")
     try:
-        return max(1, min(int(raw), 20))
+        return max(1, min(int(raw), 6))
     except ValueError:
-        return 20
+        return 1
+
+
+def _scrape_pending_sequential(page, pending: list[str], handle_portal_result, context) -> None:
+    delay = max(0.0, float(os.getenv("CLASS_SCRAPE_DELAY", "0.3")))
+    for index, ticket in enumerate(pending):
+        if index > 0:
+            if delay > 0:
+                time.sleep(delay)
+            context.clear_cookies()
+        try:
+            data = _fetch_marks(page, ticket, summary_only=False, fast=True)
+            handle_portal_result(ticket, data)
+        except Exception as exc:
+            handle_portal_result(ticket, {"error": str(exc), "hallTicket": ticket})
+
+
+def _scrape_pending_parallel(pending: list[str], handle_portal_result, workers: int) -> None:
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    with ThreadPoolExecutor(max_workers=min(workers, len(pending))) as pool:
+        futures = {pool.submit(_scrape_one_class_ticket, ticket): ticket for ticket in pending}
+        for future in as_completed(futures):
+            ticket = futures[future]
+            try:
+                data = future.result()
+            except Exception as exc:
+                data = {"error": str(exc), "hallTicket": ticket}
+            handle_portal_result(ticket, data)
 
 
 def _scrape_one_class_ticket(ticket: str, *, summary_only: bool = False) -> dict:
@@ -266,7 +345,16 @@ def _execute_class_scrape(
     cached_map: dict[str, dict] = {}
 
     if not force_refresh and is_enabled():
+        class_doc = get_cached_class(key)
+        if class_doc:
+            for row in (class_doc.get("data") or {}).get("students") or []:
+                ticket_key = (row.get("hallTicket") or "").upper()
+                if ticket_key:
+                    cached_map[ticket_key] = to_class_student(row)
+
         for ticket in tickets:
+            if ticket in cached_map:
+                continue
             cached = get_cached_result(ticket)
             if not cached:
                 continue
@@ -365,20 +453,19 @@ def _execute_class_scrape(
 
             if pending:
                 workers = _class_scrape_workers() if len(pending) > 1 else 1
-                from concurrent.futures import ProcessPoolExecutor, as_completed
+                if workers <= 1:
+                    from playwright.sync_api import sync_playwright
 
-                with ProcessPoolExecutor(
-                    max_workers=min(workers, len(pending)),
-                    mp_context=_playwright_pool_ctx,
-                ) as pool:
-                    futures = {pool.submit(_scrape_one_class_ticket, ticket): ticket for ticket in pending}
-                    for future in as_completed(futures):
-                        ticket = futures[future]
+                    with sync_playwright() as p:
+                        browser = p.chromium.launch(headless=True)
+                        context = browser.new_context(user_agent=USER_AGENT)
+                        page = context.new_page()
                         try:
-                            data = future.result()
-                        except Exception as exc:
-                            data = {"error": str(exc), "hallTicket": ticket}
-                        handle_portal_result(ticket, data)
+                            _scrape_pending_sequential(page, pending, handle_portal_result, context)
+                        finally:
+                            browser.close()
+                else:
+                    _scrape_pending_parallel(pending, handle_portal_result, workers)
 
         result = finalize_class_result(students, failed, prefix, start_roll, end_roll, roll_digits)
         result["scrapeStatus"] = "complete"
@@ -416,16 +503,16 @@ def start_class_scrape(
     prefix = prefix.strip().upper()
     key = class_cache_key(prefix, start_roll, end_roll, roll_digits)
 
+    _cleanup_stale_class_job(key)
+
     with _class_scrape_jobs_lock:
         existing = _class_scrape_jobs.get(key)
         if existing and existing.get("status") == "running":
             return key
 
-    if not force_refresh and is_class_scrape_running(key):
-        return key
-
     lock_name = f"class-scrape:{key}"
-    if not _with_refresh_lock(lock_name):
+    if not _acquire_class_scrape_lock(lock_name):
+        logger.warning("Could not acquire class scrape lock for %s", key)
         return key
 
     with _class_scrape_jobs_lock:
@@ -848,8 +935,9 @@ def get_class_results(
         )
 
     def start_missing_scrape(result: dict) -> dict:
-        if not is_class_scrape_running(key):
-            start_class_scrape(prefix, start_roll, end_roll, roll_digits, delay_sec, force_refresh=force_refresh)
+        _ensure_class_scrape_running(
+            key, prefix, start_roll, end_roll, roll_digits, delay_sec, force_refresh=force_refresh
+        )
         result = dict(result)
         result["scrapeStatus"] = "in_progress"
         result["scrapeProgress"] = _class_progress_from_result(result)
@@ -862,9 +950,15 @@ def get_class_results(
         if cached:
             data = filter_class_result_to_range(dict(cached["data"]), prefix, start_roll, end_roll, roll_digits)
             in_progress = data.get("scrapeStatus") == "in_progress"
-            if not in_progress and _class_range_needs_scrape(data):
+            if in_progress:
+                age = _iso_age_seconds(cached.get("updatedAt"))
+                if age is None or age > _CLASS_SCRAPE_STALE_SEC or not is_class_scrape_running(key):
+                    _ensure_class_scrape_running(
+                        key, prefix, start_roll, end_roll, roll_digits, delay_sec, force_refresh=force_refresh
+                    )
+            elif _class_range_needs_scrape(data):
                 return start_missing_scrape(data)
-            if not in_progress:
+            else:
                 schedule_class_refresh(prefix, start_roll, end_roll, roll_digits, delay_sec)
             return finish(data, cached=True, in_progress=in_progress, cached_at=cached.get("updatedAt"))
 
@@ -892,7 +986,9 @@ def get_class_results(
             data = filter_class_result_to_range(dict(cached["data"]), prefix, start_roll, end_roll, roll_digits)
             return finish(data, cached=True, in_progress=True, cached_at=cached.get("updatedAt"))
 
-    start_class_scrape(prefix, start_roll, end_roll, roll_digits, delay_sec, force_refresh=force_refresh)
+    _ensure_class_scrape_running(
+        key, prefix, start_roll, end_roll, roll_digits, delay_sec, force_refresh=force_refresh
+    )
     if is_enabled():
         cached = get_cached_class(key)
         if cached:

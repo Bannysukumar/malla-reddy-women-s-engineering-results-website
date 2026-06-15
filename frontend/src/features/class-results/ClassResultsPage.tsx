@@ -168,6 +168,12 @@ export default function ClassResultsPage() {
           if (type === "done") {
             applyResult(event.result as ClassResult, true, range);
           }
+
+          if (type === "error") {
+            setError(String(event.message || "Class scrape failed. Please try again."));
+            stopPoll();
+            setLoading(false);
+          }
         });
       } catch {
         const latest = await fetchClassResults(payload).catch(() => null);
