@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import multiprocessing as mp
 import os
 import threading
 import time
@@ -60,6 +61,7 @@ _class_scrape_jobs_lock = threading.Lock()
 _class_scrape_restart_at: dict[str, float] = {}
 _CLASS_SCRAPE_STALE_SEC = int(os.getenv("CLASS_SCRAPE_STALE_SEC", "180"))
 _CLASS_SCRAPE_RESTART_COOLDOWN_SEC = int(os.getenv("CLASS_SCRAPE_RESTART_COOLDOWN_SEC", "45"))
+_playwright_pool_ctx = mp.get_context("spawn")
 
 
 def _utc_now_iso() -> str:
@@ -145,7 +147,20 @@ def get_class_scrape_job(key: str) -> dict[str, Any] | None:
 def is_class_scrape_running(key: str) -> bool:
     with _class_scrape_jobs_lock:
         job = _class_scrape_jobs.get(key)
-        return bool(job and job.get("status") == "running")
+        if job and job.get("status") == "running":
+            age = _iso_age_seconds(job.get("startedAt") or job.get("updatedAt"))
+            if age is None or age < 3600:
+                return True
+
+    if is_enabled():
+        cached = get_cached_class(key)
+        if cached:
+            data = cached.get("data") or {}
+            if data.get("scrapeStatus") == "in_progress":
+                age = _iso_age_seconds(cached.get("updatedAt"))
+                if age is not None and age < _CLASS_SCRAPE_STALE_SEC:
+                    return True
+    return False
 
 
 def _save_partial_class_result(
@@ -496,11 +511,37 @@ def _execute_class_scrape(
     except Exception as exc:
         logger.exception("Class scrape failed for %s: %s", key, exc)
         _class_job_push_event(key, {"type": "error", "message": str(exc)})
+        try:
+            result = finalize_class_result(students, failed, prefix, start_roll, end_roll, roll_digits)
+            result["scrapeStatus"] = "failed"
+            result["scrapeError"] = str(exc)
+            if is_enabled():
+                save_class_result(key, result)
+        except Exception:
+            logger.exception("Could not persist failed class scrape state for %s", key)
         with _class_scrape_jobs_lock:
             if key in _class_scrape_jobs:
                 _class_scrape_jobs[key]["status"] = "failed"
                 _class_scrape_jobs[key]["error"] = str(exc)
                 _class_scrape_jobs[key]["updatedAt"] = _utc_now_iso()
+
+
+def _class_scrape_process_entry(
+    key: str,
+    prefix: str,
+    start_roll: int,
+    end_roll: int,
+    roll_digits: int,
+    delay_sec: float,
+    force_refresh: bool,
+    lock_name: str,
+) -> None:
+    try:
+        _execute_class_scrape(
+            key, prefix, start_roll, end_roll, roll_digits, delay_sec, force_refresh=force_refresh
+        )
+    finally:
+        _release_refresh_lock(lock_name)
 
 
 def start_class_scrape(
@@ -541,45 +582,75 @@ def start_class_scrape(
         }
 
     def run() -> None:
-        try:
-            _execute_class_scrape(
-                key, prefix, start_roll, end_roll, roll_digits, delay_sec, force_refresh=force_refresh
-            )
-        finally:
-            _release_refresh_lock(lock_name)
+        process = _playwright_pool_ctx.Process(
+            target=_class_scrape_process_entry,
+            args=(key, prefix, start_roll, end_roll, roll_digits, delay_sec, force_refresh, lock_name),
+            daemon=True,
+            name=f"class-scrape-{key[:20]}",
+        )
+        process.start()
 
-    threading.Thread(target=run, daemon=True, name=f"class-scrape-{key[:20]}").start()
+    run()
     return True
 
 
 def iter_class_scrape_events(key: str, *, from_index: int = 0, poll_sec: float = 0.4):
-    """Yield scrape SSE events until the job finishes. Survives client disconnect on the worker."""
+    """Yield scrape SSE events until the job finishes. Polls Firebase when scrape runs in a child process."""
     index = from_index
     missing = 0
+    seen_tickets: set[str] = set()
+    seen_failed: set[str] = set()
+
     while True:
+        emitted = False
+
         with _class_scrape_jobs_lock:
             job = _class_scrape_jobs.get(key)
-            if not job:
-                events: list[dict[str, Any]] = []
-                status = None
-            else:
+            if job:
                 events = job["events"][index:]
                 status = job.get("status")
                 index += len(events)
+                for event in events:
+                    emitted = True
+                    yield event
+                if status in ("completed", "failed"):
+                    return
 
-        if not job:
+        if is_enabled():
+            cached = get_cached_class(key)
+            if cached:
+                missing = 0
+                data = dict(cached.get("data") or {})
+                for student in data.get("students") or []:
+                    ticket = (student.get("hallTicket") or "").upper()
+                    if ticket and ticket not in seen_tickets:
+                        seen_tickets.add(ticket)
+                        emitted = True
+                        yield {"type": "student", "student": student, "cached": True}
+                for item in data.get("failed") or []:
+                    ticket = (item.get("hallTicket") or "").upper()
+                    if ticket and ticket not in seen_failed:
+                        seen_failed.add(ticket)
+                        emitted = True
+                        yield {"type": "failed", "student": item}
+                status = data.get("scrapeStatus")
+                if status == "complete":
+                    yield {"type": "done", "result": data}
+                    return
+                if status == "failed":
+                    yield {"type": "error", "message": data.get("scrapeError") or "Class scrape failed"}
+                    return
+            else:
+                missing += 1
+
+        if not emitted:
             missing += 1
             if missing > 25:
                 break
             time.sleep(poll_sec)
             continue
+
         missing = 0
-
-        for event in events:
-            yield event
-
-        if status in ("completed", "failed"):
-            break
         time.sleep(poll_sec)
 
 
