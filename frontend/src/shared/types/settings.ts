@@ -52,6 +52,16 @@ export interface AdminUser {
   updatedAt?: string;
 }
 
+export interface NotificationItem {
+  id: string;
+  title: string;
+  body: string;
+  published: boolean;
+  link?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export const DEFAULT_FOOTER_CONTACT: FooterContact = {
   title: "Contact",
   address: "Hyderabad, Telangana, India",

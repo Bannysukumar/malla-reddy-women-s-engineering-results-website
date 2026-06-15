@@ -32,6 +32,15 @@ export function sortBySemesterDesc<T>(items: T[], getLabel: (item: T) => string)
   return [...items].sort((a, b) => compareSemestersDesc(getLabel(a), getLabel(b)));
 }
 
+/** Earliest semester first (e.g. I/IV I SEM before I/IV II SEM). */
+export function compareSemestersAsc(a: string, b: string): number {
+  return getSemesterSortKey(a) - getSemesterSortKey(b);
+}
+
+export function sortBySemesterAsc<T>(items: T[], getLabel: (item: T) => string): T[] {
+  return [...items].sort((a, b) => compareSemestersAsc(getLabel(a), getLabel(b)));
+}
+
 const YEAR_ROMAN = ["I", "II", "III", "IV"] as const;
 
 /** Next semester after the given label (e.g. III/IV I SEM → III/IV II SEM). */

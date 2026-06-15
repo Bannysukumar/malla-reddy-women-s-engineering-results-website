@@ -12,6 +12,9 @@ from results_service import (
     get_student_results,
     get_student_semwise_marks,
     build_class_from_cache,
+    assemble_class_from_individual_cache,
+    finalize_class_result,
+    filter_class_result_to_range,
     schedule_class_refresh,
     start_class_scrape,
     iter_class_scrape_events,
@@ -21,14 +24,18 @@ from admin_auth import authenticate_admin, decode_admin_token, require_admin, ve
 from admin_service import fetch_admin_stats, is_scrape_running, stream_bulk_scrape, stream_hard_scrape, is_hard_scrape_running
 from cms_service import (
     create_admin_user,
+    create_notification,
     delete_admin_user,
+    delete_notification,
     get_footer_settings,
     list_admin_users,
     list_feedback,
+    list_notifications,
     save_footer_settings,
     submit_feedback,
     update_admin_user,
     update_feedback_status,
+    update_notification,
 )
 import json
 import os
@@ -363,7 +370,7 @@ def _stream_class_results(prefix, start_roll, end_roll, roll_digits, delay_sec, 
     if not force_refresh and is_enabled():
         cached_class = get_cached_class(cache_key)
         if cached_class:
-            data = dict(cached_class["data"])
+            data = filter_class_result_to_range(dict(cached_class["data"]), prefix, start_roll, end_roll, roll_digits)
             if data.get("scrapeStatus") == "in_progress":
                 start_class_scrape(prefix, start_roll, end_roll, roll_digits, delay_sec, force_refresh=force_refresh)
                 for event in iter_class_scrape_events(cache_key):
@@ -386,6 +393,27 @@ def _stream_class_results(prefix, start_roll, end_roll, roll_digits, delay_sec, 
             yield emit({"type": "done", "result": assembled, "cached": True, "instant": True})
             schedule_class_refresh(prefix, start_roll, end_roll, roll_digits, delay_sec)
             return
+
+        partial = assemble_class_from_individual_cache(prefix, start_roll, end_roll, roll_digits)
+        if partial["resolvedCount"] > 0 and partial["missingCount"] > 0:
+            snapshot = finalize_class_result(
+                partial["students"], partial["failed"], prefix, start_roll, end_roll, roll_digits
+            )
+            snapshot["scrapeStatus"] = "in_progress"
+            snapshot["scrapeProgress"] = {
+                "current": partial["resolvedCount"],
+                "total": partial["total"],
+                "remaining": partial["missingCount"],
+                "cachedCount": partial["cachedCount"],
+                "hallTicket": None,
+            }
+            save_class_result(cache_key, snapshot)
+            yield emit({
+                "type": "partial",
+                "result": snapshot,
+                "cachedCount": partial["cachedCount"],
+                "remaining": partial["missingCount"],
+            })
 
     start_class_scrape(prefix, start_roll, end_roll, roll_digits, delay_sec, force_refresh=force_refresh)
 
@@ -422,6 +450,14 @@ def public_feedback():
 def public_footer_settings():
     try:
         return jsonify(get_footer_settings())
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
+@app.route("/api/notifications", methods=["GET"])
+def public_notifications():
+    try:
+        return jsonify({"items": list_notifications(published_only=True)})
     except Exception as exc:
         return jsonify({"error": str(exc)}), 500
 
@@ -569,6 +605,62 @@ def admin_footer_save():
         return jsonify({"error": "sections must be an array"}), 400
     try:
         return jsonify(save_footer_settings(body))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
+@app.route("/api/admin/notifications", methods=["GET"])
+@require_admin
+def admin_notifications_list():
+    try:
+        return jsonify({"items": list_notifications(published_only=False)})
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
+@app.route("/api/admin/notifications", methods=["POST"])
+@require_admin
+def admin_notifications_create():
+    body = request.get_json(silent=True) or {}
+    try:
+        return jsonify(create_notification(
+            body.get("title") or "",
+            body.get("body") or "",
+            published=bool(body.get("published", True)),
+            link=body.get("link") or "",
+        )), 201
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
+@app.route("/api/admin/notifications/<notification_id>", methods=["PATCH"])
+@require_admin
+def admin_notifications_update(notification_id):
+    body = request.get_json(silent=True) or {}
+    try:
+        return jsonify(update_notification(
+            notification_id,
+            title=body.get("title"),
+            body=body.get("body"),
+            published=body.get("published") if "published" in body else None,
+            link=body.get("link"),
+        ))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
+@app.route("/api/admin/notifications/<notification_id>", methods=["DELETE"])
+@require_admin
+def admin_notifications_delete(notification_id):
+    try:
+        delete_notification(notification_id)
+        return jsonify({"ok": True})
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     except Exception as exc:

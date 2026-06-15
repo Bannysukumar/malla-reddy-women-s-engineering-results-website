@@ -8,7 +8,7 @@ import { Badge } from "@/shared/components/ui/Badge";
 import { Card } from "@/shared/components/ui/Card";
 import { ResultSkeleton } from "@/shared/components/ui/Skeleton";
 import { fetchOverallResult, queryKeys } from "@/shared/lib/api";
-import { inferPendingSemester, sortBySemesterDesc } from "@/shared/lib/semesterSort";
+import { inferPendingSemester, sortBySemesterAsc } from "@/shared/lib/semesterSort";
 import { useSearchHistory } from "@/shared/hooks/useSearchHistory";
 import type { StudentOverallResult } from "@/shared/types/results";
 
@@ -72,7 +72,7 @@ export default function OverallResultPage() {
     retry: 1,
   });
 
-  const sortedSemesters = sortBySemesterDesc(data?.semesters || [], (row) => row.semester);
+  const sortedSemesters = sortBySemesterAsc(data?.semesters || [], (row) => row.semester);
   const pendingSemester =
     data?.pendingSemester ??
     inferPendingSemester(

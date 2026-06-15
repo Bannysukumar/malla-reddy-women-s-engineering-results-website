@@ -1,4 +1,4 @@
-import type { AdminUser, FeedbackItem, FooterSettings } from "@/shared/types/settings";
+import type { AdminUser, FeedbackItem, FooterSettings, NotificationItem } from "@/shared/types/settings";
 
 const ADMIN_TOKEN_KEY = "mrecw_admin_token";
 
@@ -194,4 +194,50 @@ export async function saveAdminFooter(settings: FooterSettings) {
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "Failed to save footer");
   return data as FooterSettings;
+}
+
+export async function fetchAdminNotifications(): Promise<NotificationItem[]> {
+  const res = await fetch(apiUrl("/api/admin/notifications"), { headers: adminHeaders() });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Failed to load notifications");
+  return data.items as NotificationItem[];
+}
+
+export async function createAdminNotification(payload: {
+  title: string;
+  body: string;
+  published?: boolean;
+  link?: string;
+}) {
+  const res = await fetch(apiUrl("/api/admin/notifications"), {
+    method: "POST",
+    headers: adminHeaders(),
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Failed to create notification");
+  return data as NotificationItem;
+}
+
+export async function updateAdminNotification(
+  id: string,
+  payload: Partial<Pick<NotificationItem, "title" | "body" | "published" | "link">>
+) {
+  const res = await fetch(apiUrl(`/api/admin/notifications/${encodeURIComponent(id)}`), {
+    method: "PATCH",
+    headers: adminHeaders(),
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Failed to update notification");
+  return data as NotificationItem;
+}
+
+export async function deleteAdminNotification(id: string) {
+  const res = await fetch(apiUrl(`/api/admin/notifications/${encodeURIComponent(id)}`), {
+    method: "DELETE",
+    headers: adminHeaders(),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Failed to delete notification");
 }

@@ -93,17 +93,122 @@ def _save_partial_class_result(
     current: int,
     total: int,
     hall_ticket: str | None,
+    cached_count: int | None = None,
 ) -> dict:
     result = finalize_class_result(students, failed, prefix, start_roll, end_roll, roll_digits)
     result["scrapeStatus"] = "in_progress"
     result["scrapeProgress"] = {
         "current": current,
         "total": total,
+        "remaining": max(0, total - current),
+        "cachedCount": cached_count if cached_count is not None else len(students),
         "hallTicket": hall_ticket,
     }
     if is_enabled():
         save_class_result(key, result)
     return result
+
+
+def assemble_class_from_individual_cache(
+    prefix: str,
+    start_roll: int,
+    end_roll: int,
+    roll_digits: int,
+) -> dict[str, Any]:
+    """Load whatever student rows already exist in Firebase for this roll range only."""
+    init_firebase()
+    tickets = [build_hall_ticket(prefix, roll, roll_digits) for roll in range(start_roll, end_roll + 1)]
+    students: list[dict] = []
+    failed: list[dict] = []
+    cached_count = 0
+
+    if is_enabled():
+        for ticket in tickets:
+            cached = get_cached_result(ticket)
+            if not cached:
+                continue
+            data = cached.get("data") or {}
+            if "error" in data:
+                failed.append({"hallTicket": ticket, "error": data.get("error") or "Invalid hall ticket"})
+                cached_count += 1
+                continue
+            students.append(to_summary(data))
+            cached_count += 1
+
+    total = len(tickets)
+    resolved = len(students) + len(failed)
+    return {
+        "students": students,
+        "failed": failed,
+        "cachedCount": len(students),
+        "resolvedCount": resolved,
+        "total": total,
+        "missingCount": total - resolved,
+        "complete": resolved == total and total > 0,
+    }
+
+
+def tickets_for_range(prefix: str, start_roll: int, end_roll: int, roll_digits: int) -> set[str]:
+    return {
+        build_hall_ticket(prefix, roll, roll_digits)
+        for roll in range(start_roll, end_roll + 1)
+    }
+
+
+def filter_class_result_to_range(
+    data: dict[str, Any],
+    prefix: str,
+    start_roll: int,
+    end_roll: int,
+    roll_digits: int,
+) -> dict[str, Any]:
+    """Keep only rows inside the requested roll range (never return a wider stored section)."""
+    allowed = tickets_for_range(prefix, start_roll, end_roll, roll_digits)
+    students = [
+        s for s in (data.get("students") or [])
+        if (s.get("hallTicket") or "").upper() in allowed
+    ]
+    failed = [
+        f for f in (data.get("failed") or [])
+        if (f.get("hallTicket") or "").upper() in allowed
+    ]
+    total = end_roll - start_roll + 1
+    resolved = len(students) + len(failed)
+    result = finalize_class_result(students, failed, prefix, start_roll, end_roll, roll_digits)
+
+    scrape_status = data.get("scrapeStatus")
+    if scrape_status == "in_progress" or resolved < total:
+        result["scrapeStatus"] = "in_progress"
+        current = min(data.get("scrapeProgress", {}).get("current", resolved), total)
+        result["scrapeProgress"] = {
+            "current": current,
+            "total": total,
+            "remaining": max(0, total - resolved),
+            "cachedCount": len(students),
+            "hallTicket": data.get("scrapeProgress", {}).get("hallTicket"),
+        }
+    elif scrape_status == "complete":
+        result["scrapeStatus"] = "complete"
+
+    return result
+
+
+def _class_range_needs_scrape(result: dict[str, Any]) -> bool:
+    total = int(result.get("totalAttempted") or 0)
+    resolved = int(result.get("successCount") or 0) + int(result.get("failedCount") or 0)
+    return total > 0 and resolved < total
+
+
+def _class_progress_from_result(result: dict[str, Any]) -> dict[str, Any]:
+    total = int(result.get("totalAttempted") or 0)
+    resolved = int(result.get("successCount") or 0) + int(result.get("failedCount") or 0)
+    return {
+        "current": resolved,
+        "total": total,
+        "remaining": max(0, total - resolved),
+        "cachedCount": int(result.get("successCount") or 0),
+        "hallTicket": None,
+    }
 
 
 def _execute_class_scrape(
@@ -121,38 +226,47 @@ def _execute_class_scrape(
     tickets = [build_hall_ticket(prefix, roll, roll_digits) for roll in range(start_roll, end_roll + 1)]
     students: list[dict] = []
     failed: list[dict] = []
+    cached_map: dict[str, dict] = {}
 
-    _class_job_push_event(key, {"type": "start", "total": total, "prefix": prefix})
-
-    all_cached = not force_refresh and is_enabled()
-    if all_cached:
+    if not force_refresh and is_enabled():
         for ticket in tickets:
             cached = get_cached_result(ticket)
             if not cached:
-                all_cached = False
-                break
+                continue
+            data = cached.get("data") or {}
+            if "error" in data:
+                continue
+            cached_map[ticket] = to_summary(data)
+
+    cached_preload = len(cached_map)
+    _class_job_push_event(key, {
+        "type": "start",
+        "total": total,
+        "prefix": prefix,
+        "cachedCount": cached_preload,
+        "remaining": max(0, total - cached_preload),
+    })
+
+    all_cached = not force_refresh and cached_preload == total and total > 0
 
     try:
         if all_cached:
             for index, ticket in enumerate(tickets):
+                student = cached_map[ticket]
+                students.append(student)
                 _class_job_push_event(key, {
                     "type": "progress",
                     "current": index + 1,
                     "total": total,
+                    "remaining": max(0, total - (index + 1)),
+                    "cachedCount": len(students),
                     "hallTicket": ticket,
                     "cached": True,
                 })
-                student = resolve_class_student(ticket, force_refresh=False)
-                if "error" in student:
-                    item = {"hallTicket": ticket, "error": student["error"]}
-                    failed.append(item)
-                    _class_job_push_event(key, {"type": "failed", "student": item})
-                else:
-                    students.append(student)
-                    _class_job_push_event(key, {"type": "student", "student": student, "cached": True})
+                _class_job_push_event(key, {"type": "student", "student": student, "cached": True})
                 _save_partial_class_result(
                     key, students, failed, prefix, start_roll, end_roll, roll_digits,
-                    current=index + 1, total=total, hall_ticket=ticket,
+                    current=index + 1, total=total, hall_ticket=ticket, cached_count=len(students),
                 )
         else:
             from playwright.sync_api import sync_playwright
@@ -163,14 +277,37 @@ def _execute_class_scrape(
                 page = context.new_page()
                 try:
                     for index, ticket in enumerate(tickets):
+                        if not force_refresh and ticket in cached_map:
+                            student = cached_map[ticket]
+                            students.append(student)
+                            current = index + 1
+                            _class_job_push_event(key, {
+                                "type": "progress",
+                                "current": current,
+                                "total": total,
+                                "remaining": max(0, total - current),
+                                "cachedCount": len(students),
+                                "hallTicket": ticket,
+                                "cached": True,
+                            })
+                            _class_job_push_event(key, {"type": "student", "student": student, "cached": True})
+                            _save_partial_class_result(
+                                key, students, failed, prefix, start_roll, end_roll, roll_digits,
+                                current=current, total=total, hall_ticket=ticket, cached_count=len(students),
+                            )
+                            continue
+
                         if index > 0:
                             time.sleep(delay_sec)
                             context.clear_cookies()
 
+                        current = index + 1
                         _class_job_push_event(key, {
                             "type": "progress",
-                            "current": index + 1,
+                            "current": current,
                             "total": total,
+                            "remaining": max(0, total - current),
+                            "cachedCount": len(students),
                             "hallTicket": ticket,
                         })
 
@@ -181,7 +318,7 @@ def _execute_class_scrape(
                                 _class_job_push_event(key, {"type": "student", "student": cached, "cached": True})
                                 _save_partial_class_result(
                                     key, students, failed, prefix, start_roll, end_roll, roll_digits,
-                                    current=index + 1, total=total, hall_ticket=ticket,
+                                    current=current, total=total, hall_ticket=ticket, cached_count=len(students),
                                 )
                                 continue
 
@@ -196,7 +333,7 @@ def _execute_class_scrape(
                                 if is_enabled():
                                     save_result(ticket, data)
                                 students.append(summary)
-                                _class_job_push_event(key, {"type": "student", "student": summary})
+                                _class_job_push_event(key, {"type": "student", "student": summary, "cached": False})
                         except Exception as exc:
                             item = {"hallTicket": ticket, "error": str(exc)}
                             failed.append(item)
@@ -204,7 +341,7 @@ def _execute_class_scrape(
 
                         _save_partial_class_result(
                             key, students, failed, prefix, start_roll, end_roll, roll_digits,
-                            current=index + 1, total=total, hall_ticket=ticket,
+                            current=current, total=total, hall_ticket=ticket, cached_count=len(students),
                         )
                 finally:
                     browser.close()
@@ -655,78 +792,83 @@ def get_class_results(
     *,
     force_refresh: bool = False,
 ) -> dict:
-    """Class Results — instant Firebase read when section cache exists."""
+    """Class Results — always scoped to the requested roll range."""
     started = time.perf_counter()
     prefix = prefix.strip().upper()
     key = class_cache_key(prefix, start_roll, end_roll, roll_digits)
     init_firebase()
+    total = end_roll - start_roll + 1
+
+    def finish(data: dict, *, cached: bool, in_progress: bool = False, cached_at: str | None = None) -> dict:
+        scoped = filter_class_result_to_range(data, prefix, start_roll, end_roll, roll_digits)
+        elapsed = round((time.perf_counter() - started) * 1000, 1)
+        return _attach_meta(
+            scoped,
+            _meta(
+                "firebase" if cached else "scraped",
+                cached=cached,
+                cached_at=cached_at,
+                response_ms=elapsed,
+                in_progress=in_progress or scoped.get("scrapeStatus") == "in_progress",
+            ),
+        )
+
+    def start_missing_scrape(result: dict) -> dict:
+        if not is_class_scrape_running(key):
+            start_class_scrape(prefix, start_roll, end_roll, roll_digits, delay_sec, force_refresh=force_refresh)
+        result = dict(result)
+        result["scrapeStatus"] = "in_progress"
+        result["scrapeProgress"] = _class_progress_from_result(result)
+        if is_enabled():
+            save_class_result(key, result)
+        return finish(result, cached=True, in_progress=True)
 
     if not force_refresh and is_enabled():
         cached = get_cached_class(key)
         if cached:
-            data = dict(cached["data"])
+            data = filter_class_result_to_range(dict(cached["data"]), prefix, start_roll, end_roll, roll_digits)
             in_progress = data.get("scrapeStatus") == "in_progress"
+            if not in_progress and _class_range_needs_scrape(data):
+                return start_missing_scrape(data)
             if not in_progress:
                 schedule_class_refresh(prefix, start_roll, end_roll, roll_digits, delay_sec)
-            elapsed = round((time.perf_counter() - started) * 1000, 1)
-            return _attach_meta(
-                data,
-                _meta(
-                    "firebase",
-                    cached=True,
-                    cached_at=cached.get("updatedAt"),
-                    response_ms=elapsed,
-                    in_progress=in_progress,
-                ),
-            )
+            return finish(data, cached=True, in_progress=in_progress, cached_at=cached.get("updatedAt"))
 
         assembled = build_class_from_cache(prefix, start_roll, end_roll, roll_digits)
         if assembled:
             save_class_result(key, assembled)
             schedule_class_refresh(prefix, start_roll, end_roll, roll_digits, delay_sec)
-            elapsed = round((time.perf_counter() - started) * 1000, 1)
-            return _attach_meta(
-                assembled,
-                _meta("firebase", cached=True, response_ms=elapsed),
+            return finish(assembled, cached=True)
+
+        partial = assemble_class_from_individual_cache(prefix, start_roll, end_roll, roll_digits)
+        if partial["resolvedCount"] > 0:
+            result = finalize_class_result(
+                partial["students"], partial["failed"], prefix, start_roll, end_roll, roll_digits
             )
+            if partial["missingCount"] > 0:
+                return start_missing_scrape(result)
+            result["scrapeStatus"] = "complete"
+            save_class_result(key, result)
+            schedule_class_refresh(prefix, start_roll, end_roll, roll_digits, delay_sec)
+            return finish(result, cached=True)
 
     if is_class_scrape_running(key):
         cached = get_cached_class(key) if is_enabled() else None
         if cached:
-            data = dict(cached["data"])
-            elapsed = round((time.perf_counter() - started) * 1000, 1)
-            return _attach_meta(
-                data,
-                _meta(
-                    "firebase",
-                    cached=True,
-                    cached_at=cached.get("updatedAt"),
-                    response_ms=elapsed,
-                    in_progress=True,
-                ),
-            )
+            data = filter_class_result_to_range(dict(cached["data"]), prefix, start_roll, end_roll, roll_digits)
+            return finish(data, cached=True, in_progress=True, cached_at=cached.get("updatedAt"))
 
     start_class_scrape(prefix, start_roll, end_roll, roll_digits, delay_sec, force_refresh=force_refresh)
     if is_enabled():
         cached = get_cached_class(key)
         if cached:
-            data = dict(cached["data"])
-            elapsed = round((time.perf_counter() - started) * 1000, 1)
-            return _attach_meta(
-                data,
-                _meta(
-                    "firebase",
-                    cached=True,
-                    cached_at=cached.get("updatedAt"),
-                    response_ms=elapsed,
-                    in_progress=True,
-                ),
-            )
+            data = filter_class_result_to_range(dict(cached["data"]), prefix, start_roll, end_roll, roll_digits)
+            return finish(data, cached=True, in_progress=True, cached_at=cached.get("updatedAt"))
 
     placeholder = finalize_class_result([], [], prefix, start_roll, end_roll, roll_digits)
     placeholder["scrapeStatus"] = "in_progress"
-    placeholder["scrapeProgress"] = {"current": 0, "total": end_roll - start_roll + 1, "hallTicket": None}
-    return _attach_meta(placeholder, _meta("scraped", cached=False, in_progress=True))
+    placeholder["scrapeProgress"] = {"current": 0, "total": total, "remaining": total, "cachedCount": 0, "hallTicket": None}
+    return finish(placeholder, cached=False, in_progress=True)
 
 
 def resolve_class_student(ticket: str, *, force_refresh: bool = False) -> dict:
@@ -752,21 +894,10 @@ def resolve_class_student(ticket: str, *, force_refresh: bool = False) -> dict:
 
 def build_class_from_cache(prefix: str, start_roll: int, end_roll: int, roll_digits: int) -> dict | None:
     """Build class result entirely from cached student documents when all exist."""
-    if not is_enabled():
+    partial = assemble_class_from_individual_cache(prefix, start_roll, end_roll, roll_digits)
+    if not partial["complete"]:
         return None
-
-    students = []
-    failed = []
-    tickets = [build_hall_ticket(prefix, roll, roll_digits) for roll in range(start_roll, end_roll + 1)]
-
-    for ticket in tickets:
-        cached = get_cached_result(ticket)
-        if cached and "error" not in cached.get("data", {}):
-            students.append(to_summary(cached["data"]))
-        else:
-            return None
-
-    return finalize_class_result(students, failed, prefix, start_roll, end_roll, roll_digits)
+    return finalize_class_result(partial["students"], partial["failed"], prefix, start_roll, end_roll, roll_digits)
 
 
 def _schedule_attendance_refresh(hall_ticket: str, cached_data: dict) -> None:

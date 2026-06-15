@@ -23,6 +23,7 @@ const AdminDashboardPage = lazy(() => import("@/features/admin/AdminDashboardPag
 const AdminFeedbackPage = lazy(() => import("@/features/admin/AdminFeedbackPage"));
 const AdminUsersPage = lazy(() => import("@/features/admin/AdminUsersPage"));
 const AdminFooterPage = lazy(() => import("@/features/admin/AdminFooterPage"));
+const AdminNotificationsPage = lazy(() => import("@/features/admin/AdminNotificationsPage"));
 
 export const router = createBrowserRouter([
   {
@@ -59,6 +60,7 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <AdminDashboardPage /> },
           { path: "feedback", element: <AdminFeedbackPage /> },
+          { path: "notifications", element: <AdminNotificationsPage /> },
           { path: "users", element: <AdminUsersPage /> },
           { path: "footer", element: <AdminFooterPage /> },
         ],

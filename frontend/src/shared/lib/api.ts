@@ -9,7 +9,7 @@ import type {
   StudentResult,
   StudentSemwiseMarks,
 } from "@/shared/types/results";
-import type { FooterSettings } from "@/shared/types/settings";
+import type { FooterSettings, NotificationItem } from "@/shared/types/settings";
 
 const API_BASE = (
   import.meta.env.VITE_API_URL ||
@@ -97,6 +97,8 @@ export async function fetchCreditsCompare(hallTicketA: string, hallTicketB: stri
 export async function fetchClassResults(payload: {
   prefix?: string;
   sampleTicket: string;
+  firstTicket?: string;
+  lastTicket?: string;
   startRoll?: number;
   endRoll?: number;
   rollDigits?: number;
@@ -113,6 +115,8 @@ export async function streamClassResults(
   payload: {
     prefix?: string;
     sampleTicket: string;
+    firstTicket?: string;
+    lastTicket?: string;
     startRoll?: number;
     endRoll?: number;
     rollDigits?: number;
@@ -181,6 +185,7 @@ export const queryKeys = {
   contrast: (a: string, b: string) => ["contrast", a, b] as const,
   creditsCompare: (a: string, b: string) => ["credits-compare", a, b] as const,
   footer: () => ["footer-settings"] as const,
+  notifications: () => ["notifications"] as const,
 };
 
 export async function submitFeedback(message: string) {
@@ -195,4 +200,10 @@ export async function submitFeedback(message: string) {
 export async function fetchFooterSettings() {
   const res = await fetch(apiUrl("/api/settings/footer"));
   return parseJson<FooterSettings>(res);
+}
+
+export async function fetchNotifications() {
+  const res = await fetch(apiUrl("/api/notifications"));
+  const data = await parseJson<{ items: NotificationItem[] }>(res);
+  return data.items;
 }

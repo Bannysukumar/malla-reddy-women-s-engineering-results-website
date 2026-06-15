@@ -36,6 +36,10 @@ def sort_semesters_desc(items: list[T], label_fn: Callable[[T], str]) -> list[T]
     return sorted(items, key=lambda item: semester_sort_key(label_fn(item)), reverse=True)
 
 
+def sort_semesters_asc(items: list[T], label_fn: Callable[[T], str]) -> list[T]:
+    return sorted(items, key=lambda item: semester_sort_key(label_fn(item)))
+
+
 _YEAR_ROMAN = ("I", "II", "III", "IV")
 
 

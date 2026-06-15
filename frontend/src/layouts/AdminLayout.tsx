@@ -1,4 +1,4 @@
-import { LayoutDashboard, Link2, LogOut, MessageSquare, Shield, Users } from "lucide-react";
+import { LayoutDashboard, Bell, Link2, LogOut, MessageSquare, Shield, Users } from "lucide-react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { adminLogout } from "@/shared/lib/adminApi";
 import { cn } from "@/shared/lib/cn";
@@ -6,6 +6,7 @@ import { cn } from "@/shared/lib/cn";
 const NAV = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/admin/feedback", label: "Feedback", icon: MessageSquare },
+  { to: "/admin/notifications", label: "Notifications", icon: Bell },
   { to: "/admin/users", label: "Users", icon: Users },
         { to: "/admin/footer", label: "Footer", icon: Link2 },
 ];

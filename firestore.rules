@@ -46,6 +46,9 @@ service cloud.firestore {
     match /mrecw_feedback/{docId} {
       allow read, write: if false;
     }
+    match /mrecw_notifications/{docId} {
+      allow read, write: if false;
+    }
     match /mrecw_admin_users/{docId} {
       allow read, write: if false;
     }

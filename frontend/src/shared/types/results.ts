@@ -117,6 +117,8 @@ export interface ClassStudent {
 export interface ClassScrapeProgress {
   current: number;
   total: number;
+  remaining?: number;
+  cachedCount?: number;
   hallTicket?: string | null;
 }
 

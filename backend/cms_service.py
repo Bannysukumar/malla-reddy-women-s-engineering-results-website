@@ -11,6 +11,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from firebase_cache import (
     COLLECTION_ADMIN_USERS,
     COLLECTION_FEEDBACK,
+    COLLECTION_NOTIFICATIONS,
     COLLECTION_SETTINGS,
     SETTINGS_FOOTER_DOC,
     delete_raw_document,
@@ -345,3 +346,99 @@ def save_footer_settings(payload: dict[str, Any]) -> dict[str, Any]:
     }
     set_raw_document(COLLECTION_SETTINGS, SETTINGS_FOOTER_DOC, result, merge=True)
     return result
+
+
+def _notification_item(doc: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": doc.get("id"),
+        "title": doc.get("title") or "",
+        "body": doc.get("body") or "",
+        "published": bool(doc.get("published", False)),
+        "link": doc.get("link") or "",
+        "createdAt": doc.get("createdAt"),
+        "updatedAt": doc.get("updatedAt"),
+    }
+
+
+def list_notifications(*, published_only: bool = False) -> list[dict[str, Any]]:
+    init_firebase()
+    items = list_raw_documents(COLLECTION_NOTIFICATIONS, order_field="createdAt", descending=True, limit=200)
+    if published_only:
+        items = [item for item in items if item.get("published")]
+    return [_notification_item(item) for item in items]
+
+
+def create_notification(
+    title: str,
+    body: str,
+    *,
+    published: bool = True,
+    link: str = "",
+) -> dict[str, Any]:
+    init_firebase()
+    if not is_enabled():
+        raise ValueError("Firebase is not configured")
+
+    title = title.strip()
+    body = body.strip()
+    link = link.strip()
+    if len(title) < 2:
+        raise ValueError("Title is too short")
+    if len(body) < 3:
+        raise ValueError("Message is too short")
+
+    doc_id = str(uuid.uuid4())
+    now = _utc_now_iso()
+    payload = {
+        "title": title,
+        "body": body,
+        "published": bool(published),
+        "link": link,
+        "createdAt": now,
+        "updatedAt": now,
+    }
+    if not set_raw_document(COLLECTION_NOTIFICATIONS, doc_id, payload):
+        raise ValueError("Failed to create notification")
+    return _notification_item({"id": doc_id, **payload})
+
+
+def update_notification(
+    notification_id: str,
+    *,
+    title: str | None = None,
+    body: str | None = None,
+    published: bool | None = None,
+    link: str | None = None,
+) -> dict[str, Any]:
+    init_firebase()
+    doc = get_raw_document(COLLECTION_NOTIFICATIONS, notification_id)
+    if not doc:
+        raise ValueError("Notification not found")
+
+    updates: dict[str, Any] = {"updatedAt": _utc_now_iso()}
+    if title is not None:
+        title = title.strip()
+        if len(title) < 2:
+            raise ValueError("Title is too short")
+        updates["title"] = title
+    if body is not None:
+        body = body.strip()
+        if len(body) < 3:
+            raise ValueError("Message is too short")
+        updates["body"] = body
+    if published is not None:
+        updates["published"] = bool(published)
+    if link is not None:
+        updates["link"] = link.strip()
+
+    set_raw_document(COLLECTION_NOTIFICATIONS, notification_id, updates, merge=True)
+    updated = get_raw_document(COLLECTION_NOTIFICATIONS, notification_id) or {}
+    return _notification_item({"id": notification_id, **updated})
+
+
+def delete_notification(notification_id: str) -> None:
+    init_firebase()
+    if not get_raw_document(COLLECTION_NOTIFICATIONS, notification_id):
+        raise ValueError("Notification not found")
+    if not delete_raw_document(COLLECTION_NOTIFICATIONS, notification_id):
+        raise ValueError("Failed to delete notification")

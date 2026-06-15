@@ -7,7 +7,7 @@ from typing import Any
 
 from bs4 import BeautifulSoup
 from playwright.sync_api import Page, sync_playwright
-from semester_order import infer_pending_semester, semester_sort_key, sort_semesters_desc
+from semester_order import infer_pending_semester, semester_sort_key, sort_semesters_asc
 
 from scraper import BASE, MARKS_URL, USER_AGENT
 
@@ -116,7 +116,7 @@ def parse_overall_result_page(html: str, hall_ticket: str) -> dict[str, Any]:
         latest_semester = latest_row.get("semester")
         latest_cgpa = latest_row.get("cgpa")
 
-    semesters = sort_semesters_desc(semesters, lambda row: row.get("semester", ""))
+    semesters = sort_semesters_asc(semesters, lambda row: row.get("semester", ""))
     for index, row in enumerate(semesters, start=1):
         row["sno"] = str(index)
 
