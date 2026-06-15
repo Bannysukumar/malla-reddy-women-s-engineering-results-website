@@ -16,7 +16,6 @@ from results_service import (
     finalize_class_result,
     filter_class_result_to_range,
     schedule_class_refresh,
-    start_class_scrape,
     iter_class_scrape_events,
     _ensure_class_scrape_running,
 )

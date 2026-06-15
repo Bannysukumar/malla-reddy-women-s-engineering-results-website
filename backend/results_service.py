@@ -57,7 +57,9 @@ _refresh_in_progress: set[str] = set()
 _refresh_guard = threading.Lock()
 _class_scrape_jobs: dict[str, dict[str, Any]] = {}
 _class_scrape_jobs_lock = threading.Lock()
+_class_scrape_restart_at: dict[str, float] = {}
 _CLASS_SCRAPE_STALE_SEC = int(os.getenv("CLASS_SCRAPE_STALE_SEC", "180"))
+_CLASS_SCRAPE_RESTART_COOLDOWN_SEC = int(os.getenv("CLASS_SCRAPE_RESTART_COOLDOWN_SEC", "45"))
 
 
 def _utc_now_iso() -> str:
@@ -93,8 +95,16 @@ def _cleanup_stale_class_job(key: str) -> None:
 def _acquire_class_scrape_lock(lock_name: str) -> bool:
     if _with_refresh_lock(lock_name):
         return True
+    if is_class_scrape_running(lock_name.removeprefix("class-scrape:")):
+        return False
     _release_refresh_lock(lock_name)
     return _with_refresh_lock(lock_name)
+
+
+def _should_restart_class_scrape(key: str) -> bool:
+    if is_class_scrape_running(key):
+        return False
+    return time.monotonic() - _class_scrape_restart_at.get(key, 0) >= _CLASS_SCRAPE_RESTART_COOLDOWN_SEC
 
 
 def _ensure_class_scrape_running(
@@ -106,14 +116,17 @@ def _ensure_class_scrape_running(
     delay_sec: float,
     *,
     force_refresh: bool = False,
-) -> None:
+) -> bool:
     _cleanup_stale_class_job(key)
-    if is_class_scrape_running(key):
-        return
-    started = start_class_scrape(
+    if not _should_restart_class_scrape(key):
+        return False
+    if not start_class_scrape(
         prefix, start_roll, end_roll, roll_digits, delay_sec, force_refresh=force_refresh
-    )
-    logger.info("Ensured class scrape running for %s (key=%s)", prefix, started)
+    ):
+        return False
+    _class_scrape_restart_at[key] = time.monotonic()
+    logger.info("Ensured class scrape running for %s", key)
+    return True
 
 
 def _class_job_push_event(key: str, event: dict[str, Any]) -> None:
@@ -498,8 +511,8 @@ def start_class_scrape(
     delay_sec: float = 0.5,
     *,
     force_refresh: bool = False,
-) -> str:
-    """Start a class scrape in the background. Returns cache key. Safe to call repeatedly."""
+) -> bool:
+    """Start a class scrape in the background. Returns True when a new job starts."""
     prefix = prefix.strip().upper()
     key = class_cache_key(prefix, start_roll, end_roll, roll_digits)
 
@@ -508,12 +521,12 @@ def start_class_scrape(
     with _class_scrape_jobs_lock:
         existing = _class_scrape_jobs.get(key)
         if existing and existing.get("status") == "running":
-            return key
+            return False
 
     lock_name = f"class-scrape:{key}"
     if not _acquire_class_scrape_lock(lock_name):
         logger.warning("Could not acquire class scrape lock for %s", key)
-        return key
+        return False
 
     with _class_scrape_jobs_lock:
         _class_scrape_jobs[key] = {
@@ -536,7 +549,7 @@ def start_class_scrape(
             _release_refresh_lock(lock_name)
 
     threading.Thread(target=run, daemon=True, name=f"class-scrape-{key[:20]}").start()
-    return key
+    return True
 
 
 def iter_class_scrape_events(key: str, *, from_index: int = 0, poll_sec: float = 0.4):
@@ -951,11 +964,9 @@ def get_class_results(
             data = filter_class_result_to_range(dict(cached["data"]), prefix, start_roll, end_roll, roll_digits)
             in_progress = data.get("scrapeStatus") == "in_progress"
             if in_progress:
-                age = _iso_age_seconds(cached.get("updatedAt"))
-                if age is None or age > _CLASS_SCRAPE_STALE_SEC or not is_class_scrape_running(key):
-                    _ensure_class_scrape_running(
-                        key, prefix, start_roll, end_roll, roll_digits, delay_sec, force_refresh=force_refresh
-                    )
+                _ensure_class_scrape_running(
+                    key, prefix, start_roll, end_roll, roll_digits, delay_sec, force_refresh=force_refresh
+                )
             elif _class_range_needs_scrape(data):
                 return start_missing_scrape(data)
             else:
